@@ -10,8 +10,8 @@ import (
 
 func isKeyword(token antlr.Token) bool {
 	tType := token.GetTokenType()
-	return tType >= parser.SnowflakeSqlParserK_SELECT &&
-		tType <= parser.SnowflakeSqlParserK_QUALIFY
+	return tType >= parser.SnowflakeParserK_SELECT &&
+		tType <= parser.SnowflakeParserK_QUALIFY
 }
 
 func uppercaseKeywords(tokens antlr.TokenStream) {
@@ -28,7 +28,7 @@ var identPattern = regexp.MustCompile(`^"[A-Z]+"$`)
 func stripQuotesIfSafe(tokens antlr.TokenStream) {
 	for i := 0; i < tokens.Size(); i++ {
 		tok := tokens.Get(i)
-		if tok.GetTokenType() == parser.SnowflakeSqlParserIDENTIFIER {
+		if tok.GetTokenType() == parser.SnowflakeParserIDENTIFIER {
 			text := tok.GetText()
 			if identPattern.MatchString(text) {
 				tok.(*antlr.CommonToken).SetText(strings.Trim(text, `"`))

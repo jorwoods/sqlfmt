@@ -7,12 +7,13 @@ import (
 
 func FormatSQL(input string) string {
 	is := antlr.NewInputStream(input)
-	lexer := parser.NewSnowflakeSqlLexer(is)
+	lexer := parser.NewSnowflakeLexer(is)
 	stream := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
 
-	p := parser.NewSnowflakeSqlParser(stream)
+	p := parser.NewSnowflakeParser(stream)
 	p.BuildParseTrees = true
-	p.SingleStatement() // parse tree ignored for now
+
+	p.Snowflake_file()
 
 	uppercaseKeywords(stream)
 	stripQuotesIfSafe(stream)
