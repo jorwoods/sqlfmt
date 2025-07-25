@@ -1,3 +1,9 @@
 parser/*.interp
 parser/*.tokens
 parser/*.log
+parser/snowflake_lexer.go
+parser/snowflake_parser.go
+parser/snowflakeparser_base_listener.go
+parser/snowflakeparser_listener.go
+
+
