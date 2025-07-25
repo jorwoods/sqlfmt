@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/antlr/antlr4/runtime/Go/antlr"
+	antlr "github.com/antlr4-go/antlr/v4"
 	"github.com/jorwoods/sqlfmt/parser"
 )
 
