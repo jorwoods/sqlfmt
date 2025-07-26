@@ -1,7 +1,7 @@
 package main
 
 import (
-	"sqlfmt/cmd"
+	"github.com/jorwoods/sqlfmt/cmd"
 )
 
 func main() {

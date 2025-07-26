@@ -1,17 +1,35 @@
 package formatter
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 
 	antlr "github.com/antlr4-go/antlr/v4"
-	"github.com/jorwoods/sqlfmt/parser"
 )
 
+var keywordSet = map[string]struct{}{
+	"select":  {},
+	"from":    {},
+	"where":   {},
+	"group":   {},
+	"having":  {},
+	"order":   {},
+	"qualify": {},
+	"insert":  {},
+	"update":  {},
+	"delete":  {},
+	"create":  {},
+	"drop":    {},
+	"merge":   {},
+	"use":     {},
+	"show":    {},
+	"describe": {},
+}
+
 func isKeyword(token antlr.Token) bool {
-	tType := token.GetTokenType()
-	return tType >= parser.SnowflakeParserK_SELECT &&
-		tType <= parser.SnowflakeParserK_QUALIFY
+	_, ok := keywordSet[strings.ToLower(token.GetText())]
+	return ok
 }
 
 func uppercaseKeywords(tokens antlr.TokenStream) {
@@ -22,48 +40,55 @@ func uppercaseKeywords(tokens antlr.TokenStream) {
 		}
 	}
 }
-
 var identPattern = regexp.MustCompile(`^"[A-Z]+"$`)
 
 func stripQuotesIfSafe(tokens antlr.TokenStream) {
 	for i := 0; i < tokens.Size(); i++ {
 		tok := tokens.Get(i)
-		if tok.GetTokenType() == parser.SnowflakeParserIDENTIFIER {
-			text := tok.GetText()
-			if identPattern.MatchString(text) {
-				tok.(*antlr.CommonToken).SetText(strings.Trim(text, `"`))
-			}
+		text := tok.GetText()
+		if identPattern.MatchString(text) {
+			unquoted := strings.Trim(text, `"`)
+			tok.(*antlr.CommonToken).SetText(unquoted)
 		}
 	}
 }
 
-var alignKeywords = map[string]struct{}{
-	"SELECT": {}, "FROM": {}, "WHERE": {}, "GROUP": {}, "HAVING": {}, "ORDER": {}, "QUALIFY": {},
+var alignKeywords = map[string]bool{
+	"SELECT": true,
+	"FROM":   true,
+	"WHERE":  true,
+	"GROUP":  true,
+	"HAVING": true,
+	"ORDER":  true,
+	"QUALIFY": true,
 }
 
 func rightAlignClauses(tokens antlr.TokenStream) string {
-	lines := strings.Split(tokensToText(tokens), "\n")
-
-	max := 0
-	for _, line := range lines {
-		for k := range alignKeywords {
-			if idx := strings.Index(line, k); idx > max {
-				max = idx
-			}
-		}
-	}
-
 	var b strings.Builder
-	for _, line := range lines {
-		for k := range alignKeywords {
-			if idx := strings.Index(line, k); idx != -1 {
-				pad := strings.Repeat(" ", max-idx)
-				line = strings.Replace(line, k, pad+k, 1)
-				break
+
+	for i := 0; i < tokens.Size(); i++ {
+		tok := tokens.Get(i)
+		text := tok.GetText()
+		upper := strings.ToUpper(text)
+
+		// Insert newline before aligning clause keyword
+		if alignKeywords[upper] {
+			if b.Len() > 0 {
+				b.WriteString("\n")
 			}
+			// Add clause right-aligned to column 16 (adjustable)
+			padded := fmt.Sprintf("%16s", upper)
+			b.WriteString(padded)
+		} else {
+			// Basic spacing for others
+			if b.Len() > 0 && !strings.HasSuffix(b.String(), "\n") {
+				b.WriteString(" ")
+			}
+			b.WriteString(text)
 		}
-		b.WriteString(line + "\n")
 	}
+
+	b.WriteString("\n<EOF>")
 	return b.String()
 }
 
