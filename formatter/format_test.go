@@ -36,6 +36,34 @@ select "ID", "NAME" from "USERS" where "AGE" > 30
    WHERE AGE > 30
 `),
 	},
+	{
+		name: "select with more than 3 identifiers",
+		input: `
+select "ID", "NAME", "AGE", "EMAIL", "COUNTRY" from "USERS"
+`,
+		expected: strings.TrimSpace(`
+  SELECT ID,
+         NAME,
+         AGE,
+         EMAIL,
+         COUNTRY,
+    FROM USERS
+`),
+	},
+	{
+		name: "select with more than 3 identifiers, trailing comma",
+		input: `
+select "ID", "NAME", "AGE", "EMAIL", "COUNTRY" from "USERS"
+`,
+		expected: strings.TrimSpace(`
+  SELECT ID,
+         NAME,
+         AGE,
+         EMAIL,
+         COUNTRY,
+    FROM USERS
+`),
+	},
 }
 
 func TestFormatSQL(t *testing.T) {

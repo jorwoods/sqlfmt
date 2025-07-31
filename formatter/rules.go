@@ -78,6 +78,10 @@ func rightAlignClauses(tokens antlr.TokenStream) string {
 		"QUALIFY": "   ",
 	}
 
+	var inSelect bool
+	var selectIdents []string
+	var selectIndent string
+
 	for i := 0; i < tokens.Size(); i++ {
 		tok := tokens.Get(i)
 		if tok.GetChannel() != antlr.TokenDefaultChannel {
@@ -92,17 +96,54 @@ func rightAlignClauses(tokens antlr.TokenStream) string {
 
 		upper := strings.ToUpper(text)
 
-		// Clause keyword: flush previous line, start new one
 		if alignKeywords[upper] {
+			if inSelect && len(selectIdents) > 0 {
+				// flush select identifiers
+				if len(selectIdents) > 3 {
+					for j, ident := range selectIdents {
+						// Always add a comma after each identifier
+						comma := ","
+						if j == 0 {
+							out = append(out, selectIndent+"SELECT "+ident+comma)
+						} else {
+							out = append(out, strings.Repeat(" ", len(selectIndent)+7)+ident+comma)
+						}
+					}
+				} else if len(selectIdents) > 0 {
+					// single line, identifiers joined by comma and space
+					out = append(out, selectIndent+"SELECT "+strings.Join(selectIdents, ", "))
+				}
+				selectIdents = nil
+				inSelect = false
+			}
 			if len(line) > 0 {
 				out = append(out, strings.Join(line, " "))
 				line = nil
 			}
 			indent := clauseIndent[upper]
 			if indent == "" {
-				indent = "   " // default 3 spaces
+				indent = "   "
 			}
 			currentClause = indent + upper
+			if upper == "SELECT" {
+				inSelect = true
+				selectIndent = indent
+			}
+			continue
+		}
+
+		if inSelect {
+			if text == "," {
+				continue // skip commas, handled in output
+			}
+			// End of select list if we see FROM or another clause keyword
+			if alignKeywords[upper] && upper != "SELECT" {
+				inSelect = false
+			}
+			// If FROM or other clause, flush selectIdents
+			if !alignKeywords[upper] || upper == "SELECT" {
+				selectIdents = append(selectIdents, text)
+			}
 			continue
 		}
 
@@ -112,7 +153,6 @@ func rightAlignClauses(tokens antlr.TokenStream) string {
 			continue
 		}
 
-		// Start a new line if clause keyword was seen
 		if currentClause != "" {
 			line = append([]string{currentClause, text})
 			currentClause = ""
@@ -121,7 +161,27 @@ func rightAlignClauses(tokens antlr.TokenStream) string {
 		}
 	}
 
-	// Flush last line
+	// Flush any remaining select identifiers
+	if inSelect && len(selectIdents) > 0 {
+		if len(selectIdents) > 3 {
+			for j, ident := range selectIdents {
+				comma := ","
+				if j == len(selectIdents)-1 {
+					comma = ""
+				}
+				if j == 0 {
+					out = append(out, selectIndent+"SELECT "+ident+comma)
+				} else {
+					out = append(out, strings.Repeat(" ", len(selectIndent)+7)+ident+comma)
+				}
+			}
+		} else if len(selectIdents) > 0 {
+			out = append(out, selectIndent+"SELECT "+strings.Join(selectIdents, ", "))
+		}
+		selectIdents = nil
+		inSelect = false
+	}
+
 	if len(line) > 0 {
 		out = append(out, strings.Join(line, " "))
 	}
