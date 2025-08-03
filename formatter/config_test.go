@@ -110,3 +110,48 @@ func TestRefactorLongSubqueriesToCTE(t *testing.T) {
 	// Correlated subquery (should not be refactored, but our stub always says not correlated)
 	// Placeholder for future: input3 := ...
 }
+
+func TestCTERefactorOutputValidation(t *testing.T) {
+	   cfg := &Config{Rules: RulesConfig{RefactorLongSubqueriesToCTE: true}}
+	   // Valid input, but refactor would produce invalid output (simulate by breaking the output)
+	   isValidSnowflakeSQLTestHook = func(sql string) bool {
+			   // Only allow the original input string to parse, not the output
+			   if strings.HasPrefix(sql, "WITH cte_1 AS") {
+					   return false
+			   }
+			   return true
+	   }
+	   oldExitFunc := exitFunc
+	   defer func() {
+			   isValidSnowflakeSQLTestHook = nil
+			   exitFunc = oldExitFunc
+	   }()
+	   input := `SELECT * FROM (SELECT id, name, email, country, age, salary, department, hire_date, status, manager_id, region, office, phone, address, zip, state, country_code FROM employees)`
+	   exitCalled := false
+	   exitFunc = func(code int) { exitCalled = true; panic("exit called") }
+	   defer func() {
+			   if r := recover(); r != nil {
+					   if r != "exit called" {
+							   t.Errorf("unexpected panic: %v", r)
+					   }
+			   }
+	   }()
+	   got := RefactorLongSubqueriesToCTE(input, cfg)
+	   if !exitCalled {
+			   t.Errorf("expected exitFunc to be called on output validation failure")
+	   }
+	   if got != input {
+			   t.Errorf("expected original input to be returned if output is invalid, got: %s", got)
+	   }
+
+	   // If input is invalid, should also return input (no exit, as input is checked before output)
+	   isValidSnowflakeSQLTestHook = func(sql string) bool { return false }
+	   exitCalled = false
+	   got2 := RefactorLongSubqueriesToCTE(input, cfg)
+	   if exitCalled {
+			   t.Errorf("did not expect exitFunc to be called when input is invalid")
+	   }
+	   if got2 != input {
+			   t.Errorf("expected original input to be returned if input is invalid, got: %s", got2)
+	   }
+}

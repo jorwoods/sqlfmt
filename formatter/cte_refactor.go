@@ -1,21 +1,96 @@
 package formatter
 
 import (
-	"fmt"
-	"strings"
+	   "fmt"
+	   "os"
+	   "strings"
 
-	antlr "github.com/antlr4-go/antlr/v4"
-	"github.com/jorwoods/sqlfmt/parser"
+	   antlr "github.com/antlr4-go/antlr/v4"
+	   "github.com/jorwoods/sqlfmt/parser"
 )
+
+
+// exitFunc allows tests to override os.Exit for testability
+var exitFunc = os.Exit
 
 // CTERefactorEnabled returns true if the config enables the CTE refactor rule.
 func CTERefactorEnabled(cfg *Config) bool {
 	return cfg == nil || cfg.Rules.RefactorLongSubqueriesToCTE
 }
 
+// test hook for validation override
+var isValidSnowflakeSQLTestHook func(string) bool
+
+func isValidSnowflakeSQL(sql string) bool {
+	if isValidSnowflakeSQLTestHook != nil {
+		return isValidSnowflakeSQLTestHook(sql)
+	}
+	is := antlr.NewInputStream(sql)
+	lexer := parser.NewSnowflakeLexer(is)
+	stream := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
+	p := parser.NewSnowflakeParser(stream)
+	p.BuildParseTrees = true
+	// Use a custom error listener to count errors
+	errorCount := 0
+	listener := &syntaxErrorCounter{count: &errorCount}
+	p.RemoveErrorListeners()
+	p.AddErrorListener(listener)
+	defer func() {
+		recover() // catch panics from parser errors
+	}()
+	tree := p.Snowflake_file()
+	return tree != nil && errorCount == 0
+}
+
+func isValidSnowflakeSQLWithErrors(sql string) (bool, []string) {
+	if isValidSnowflakeSQLTestHook != nil {
+		// Test hook disables error reporting
+		return isValidSnowflakeSQLTestHook(sql), nil
+	}
+	is := antlr.NewInputStream(sql)
+	lexer := parser.NewSnowflakeLexer(is)
+	stream := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
+	p := parser.NewSnowflakeParser(stream)
+	p.BuildParseTrees = true
+	errors := []string{}
+	errorCount := 0
+	listener := &syntaxErrorCollector{count: &errorCount, errors: &errors}
+	p.RemoveErrorListeners()
+	p.AddErrorListener(listener)
+	defer func() {
+		recover() // catch panics from parser errors
+	}()
+	tree := p.Snowflake_file()
+	return tree != nil && errorCount == 0, errors
+}
+
+type syntaxErrorCounter struct {
+	antlr.DefaultErrorListener
+	count *int
+}
+
+func (l *syntaxErrorCounter) SyntaxError(recognizer antlr.Recognizer, offendingSymbol interface{}, line, column int, msg string, e antlr.RecognitionException) {
+	*l.count++
+}
+
+type syntaxErrorCollector struct {
+	antlr.DefaultErrorListener
+	count  *int
+	errors *[]string
+}
+
+func (l *syntaxErrorCollector) SyntaxError(recognizer antlr.Recognizer, offendingSymbol interface{}, line, column int, msg string, e antlr.RecognitionException) {
+	*l.count++
+	*l.errors = append(*l.errors, fmt.Sprintf("line %d:%d: %s", line, column, msg))
+}
+
 // RefactorLongSubqueriesToCTE rewrites long/non-correlated subqueries as CTEs.
 func RefactorLongSubqueriesToCTE(sql string, cfg *Config) string {
 	if !CTERefactorEnabled(cfg) {
+		return sql
+	}
+	// Validate input parses before proceeding
+	if !isValidSnowflakeSQL(sql) {
 		return sql
 	}
 	is := antlr.NewInputStream(sql)
@@ -69,7 +144,16 @@ func RefactorLongSubqueriesToCTE(sql string, cfg *Config) string {
 	}
 	// Prepend CTEs to the rewritten query
 	cteClause := "WITH " + strings.Join(cteList, ", ") + "\n"
-	return cteClause + rewritten
+	output := cteClause + rewritten
+	// Validate output parses before returning
+	   if ok, errors := isValidSnowflakeSQLWithErrors(output); !ok {
+			   for _, err := range errors {
+					   fmt.Fprintln(os.Stderr, "sqlfmt: CTE refactor output validation error:", err)
+			   }
+			   exitFunc(1)
+			   return sql // unreachable, but required for function signature
+	   }
+	   return output
 }
 
 type subqueryInfo struct {
