@@ -11,6 +11,27 @@ A future-proof SQL formatter for Snowflake SQL, driven by ANTLR grammar.
 - **Spaces only:** All output uses spaces for alignment and indentation (never tabs). See `.editorconfig` for enforcement.
 - **Robust and maintainable:** Changes to the grammar are automatically reflected in formatting logic, making the tool future-proof.
 
+## Formatting Rules and Config
+
+You can enable or disable individual formatting rules via `sqlfmt.yaml`:
+
+| Rule                | Config Key           | Description                                             |
+|---------------------|---------------------|---------------------------------------------------------|
+| Uppercase Keywords  | `uppercase_keywords` | Uppercase all SQL keywords and function names           |
+| Align Clauses       | `align_clauses`      | Align major SQL clauses for readability                 |
+| Strip Quotes        | `strip_quotes`       | Remove quotes from identifiers when safe                |
+| Format SELECT List  | `format_select_list` | Format long SELECT lists vertically and aligned         |
+
+Example `sqlfmt.yaml`:
+
+```yaml
+rules:
+  uppercase_keywords: true
+  align_clauses: true
+  strip_quotes: true
+  format_select_list: true
+```
+
 ## Features
 
 - Uppercases all SQL keywords and built-in function names.
@@ -49,8 +70,13 @@ formatted := formatter.FormatSQL(rawSQL)
 - The formatter logic is in `formatter/rules.go` and `formatter/format.go`.
 - The grammar and generated parser/lexer are in the `parser/` directory.
 - All formatting rules are driven by the generated grammar—no custom keyword or function lists.
-- Tests are in `formatter/format_test.go`.
+- Tests are in `formatter/format_test.go` and `formatter/config_test.go`.
 - Code style is enforced by `.editorconfig` (spaces only).
+- **When adding a new rule:**
+  - Add a config entry in `sqlfmt.yaml` and `formatter/config.go`.
+  - Document the rule in this README.
+  - Add or update tests.
+  - Use a [Conventional Commits](https://www.conventionalcommits.org/) style commit message.
 
 ## License
 

@@ -28,4 +28,3 @@ func FormatSQLWithConfig(input string, cfg *Config) string {
 func FormatSQL(input string) string {
 	return FormatSQLWithConfig(input, nil)
 }
-

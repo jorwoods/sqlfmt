@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/spf13/cobra"
 	"github.com/jorwoods/sqlfmt/formatter"
+	"github.com/spf13/cobra"
 )
 
 var rootCmd = &cobra.Command{
@@ -31,4 +31,3 @@ func Execute() {
 		os.Exit(1)
 	}
 }
-
