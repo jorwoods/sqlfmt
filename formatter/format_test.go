@@ -11,6 +11,7 @@ type formatTestCase struct {
 	expected string
 }
 
+// All test cases now expect keywords and function names to be uppercased and clause detection to be grammar-driven.
 var testCases = []formatTestCase{
 	{
 		name: "basic select with quoted identifiers and lowercase keywords",
@@ -46,7 +47,7 @@ select "ID", "NAME", "AGE", "EMAIL", "COUNTRY" from "USERS"
          NAME,
          AGE,
          EMAIL,
-         COUNTRY,
+         COUNTRY
     FROM USERS
 `),
 	},
@@ -60,7 +61,7 @@ select "ID", "NAME", "AGE", "EMAIL", "COUNTRY" from "USERS"
          NAME,
          AGE,
          EMAIL,
-         COUNTRY,
+         COUNTRY
     FROM USERS
 `),
 	},
