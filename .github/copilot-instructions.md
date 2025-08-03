@@ -8,6 +8,7 @@
   - `formatter/config.go` (struct and loader)
   - `README.md` (rule documentation)
   - Add or update tests in `formatter/config_test.go` and/or other relevant test files.
+  - For example, for the `refactor_long_subqueries_to_cte` rule, ensure all of the above are updated.
 
 ## Testing
 - **All new functionality must have corresponding tests.**
@@ -18,6 +19,7 @@
   - Example: `feat: add config option for keyword lowercasing`
   - Example: `fix: respect strip_quotes config in identifier output`
   - Example: `test: add tests for new align_clauses rule`
+  - Example: `feat: add refactor_long_subqueries_to_cte rule`
 
 ## General Guidance
 - Keep the codebase grammar-driven and future-proof.

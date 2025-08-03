@@ -15,12 +15,13 @@ A future-proof SQL formatter for Snowflake SQL, driven by ANTLR grammar.
 
 You can enable or disable individual formatting rules via `sqlfmt.yaml`:
 
-| Rule                | Config Key           | Description                                             |
-|---------------------|---------------------|---------------------------------------------------------|
-| Uppercase Keywords  | `uppercase_keywords` | Uppercase all SQL keywords and function names           |
-| Align Clauses       | `align_clauses`      | Align major SQL clauses for readability                 |
-| Strip Quotes        | `strip_quotes`       | Remove quotes from identifiers when safe                |
-| Format SELECT List  | `format_select_list` | Format long SELECT lists vertically and aligned         |
+| Rule                | Config Key                         | Description                                                        |
+|---------------------|------------------------------------|--------------------------------------------------------------------|
+| Uppercase Keywords  | `uppercase_keywords`               | Uppercase all SQL keywords and function names                      |
+| Align Clauses       | `align_clauses`                    | Align major SQL clauses for readability                            |
+| Strip Quotes        | `strip_quotes`                     | Remove quotes from identifiers when safe                           |
+| Format SELECT List  | `format_select_list`               | Format long SELECT lists vertically and aligned                    |
+| Refactor Subqueries to CTE | `refactor_long_subqueries_to_cte` | Refactor long/non-correlated subqueries into CTEs (experimental)   |
 
 Example `sqlfmt.yaml`:
 
@@ -30,6 +31,7 @@ rules:
   align_clauses: true
   strip_quotes: true
   format_select_list: true
+  refactor_long_subqueries_to_cte: false
 ```
 
 ## Features
@@ -38,6 +40,7 @@ rules:
 - Aligns major SQL clauses (SELECT, FROM, WHERE, etc.) for readability.
 - Formats long SELECT lists vertically, with consistent indentation.
 - Strips quotes from identifiers when safe.
+- Optionally refactors long/non-correlated subqueries into CTEs.
 - Designed for Snowflake SQL, but extensible to other dialects with grammar changes.
 
 ## Usage

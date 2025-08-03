@@ -7,10 +7,11 @@ import (
 )
 
 type RulesConfig struct {
-	UppercaseKeywords bool `yaml:"uppercase_keywords"`
-	AlignClauses      bool `yaml:"align_clauses"`
-	StripQuotes       bool `yaml:"strip_quotes"`
-	FormatSelectList  bool `yaml:"format_select_list"`
+	UppercaseKeywords             bool `yaml:"uppercase_keywords"`
+	AlignClauses                  bool `yaml:"align_clauses"`
+	StripQuotes                   bool `yaml:"strip_quotes"`
+	FormatSelectList              bool `yaml:"format_select_list"`
+	RefactorLongSubqueriesToCTE   bool `yaml:"refactor_long_subqueries_to_cte"`
 }
 
 type Config struct {
