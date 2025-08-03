@@ -22,10 +22,18 @@ jobs:
         run: |
           go fmt ./...
 
+      - name: Clean generated files
+        run: |
+          make clean
+
+      - name: Generate parser/lexer
+        run: |
+          make generate
+
       - name: Run go build
         run: |
           go build ./...
 
       - name: Run go test
         run: |
-          go test ./...
+          make test
