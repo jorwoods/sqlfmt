@@ -1,0 +1,6 @@
+# Example sqlfmt configuration file
+rules:
+  uppercase_keywords: true
+  align_clauses: true
+  strip_quotes: true
+  format_select_list: true
