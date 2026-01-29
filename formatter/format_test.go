@@ -1,9 +1,25 @@
+
 package formatter
 
 import (
-	"strings"
-	"testing"
+       "strings"
+       "testing"
 )
+
+func TestFormatSQL_NoRulesEnabled_PassThrough(t *testing.T) {
+	       cfg := &Config{Rules: RulesConfig{
+		       UppercaseKeywords: false,
+		       AlignClauses: false,
+		       StripQuotes: false,
+		       FormatSelectList: false,
+		       RefactorLongSubqueriesToCTE: false,
+	       }}
+       input := `select "id", "name" from users where age > 30`
+       got := FormatSQLWithConfig(input, cfg)
+       if got != input {
+	       t.Errorf("expected input to pass through unchanged, got: %q", got)
+       }
+}
 
 type formatTestCase struct {
 	name     string

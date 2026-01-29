@@ -7,6 +7,13 @@ import (
 
 // FormatSQLWithConfig formats SQL using the provided config.
 func FormatSQLWithConfig(input string, cfg *Config) string {
+	       // If all rules are disabled, return input unchanged
+	       if cfg != nil {
+		       rules := cfg.Rules
+		       if !rules.UppercaseKeywords && !rules.AlignClauses && !rules.StripQuotes && !rules.FormatSelectList && !rules.RefactorLongSubqueriesToCTE {
+			       return input
+		       }
+	       }
 	is := antlr.NewInputStream(input)
 	lexer := parser.NewSnowflakeLexer(is)
 	stream := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
