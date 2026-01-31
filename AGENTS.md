@@ -43,7 +43,6 @@
 
 ## Local Norms
 - **Go import order**: Always keep import statements at the top of Go files, before any type, var, or function declarations.
-
 - **Spaces only**: No tabs for indentation or alignment (enforced by `.editorconfig`).
 - **Conventional Commits**: All commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/) style.
 - **Rule changes**: Every new formatting rule must have a config entry, code, tests, and documentation.
@@ -52,6 +51,7 @@
 - **Tests required**: All new features must have corresponding tests.
 - **Grammar-driven**: No hand-maintained keyword lists; always use the grammar.
 - **Never change tests to match broken code**: Always fix the code to pass the tests, not the other way around.
+- **Token stream only:** All new formatting rules must operate directly on the token stream, not on an intermediate string representation. This ensures grammar-driven, robust, and future-proof formatting.
 
 ## Self-correction
 
