@@ -32,6 +32,15 @@
 - All tests are in `formatter/format_test.go` and `formatter/config_test.go`.
 - Tests cover config parsing, rule application, and edge cases.
 
+## TDD Workflow Requirement
+
+- **Always use test-driven development (TDD) when making changes.**
+- **Write or update tests before implementing or refactoring code.**
+- For every new feature, bugfix, or refactor, create or modify the relevant test(s) first, then implement the code to make the tests pass.
+- Tests should clearly describe the expected behavior and edge cases before code changes are made.
+- This applies to all rules, config, and user-facing features.
+
+
 ## Local Norms
 - **Go import order**: Always keep import statements at the top of Go files, before any type, var, or function declarations.
 
