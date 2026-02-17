@@ -13,7 +13,6 @@ func TestFormatSQL_NoRulesEnabled_PassThrough(t *testing.T) {
 		       AlignClauses: false,
 		       StripQuotes: false,
 		       FormatSelectList: false,
-		       RefactorLongSubqueriesToCTE: false,
 	       }}
        input := `select "id", "name" from users where age > 30`
        got := FormatSQLWithConfig(input, cfg)
@@ -68,12 +67,6 @@ var testCases = []formatTestCase{
 	       rules: RulesConfig{FormatSelectList: true},
        },
 	       {
-		       name: "refactor subqueries to cte only (no-op for simple query)",
-		       input: `select id from users`,
-		       expected: "select id from users",
-		       rules: RulesConfig{RefactorLongSubqueriesToCTE: true},
-	       },
-	       {
 		       name: "all rules enabled",
 		       input: `select "id", "name", age from "users" where age > 30`,
 		       expected: "SELECT id, name, age\n  FROM users\n WHERE age > 30",
@@ -82,7 +75,6 @@ var testCases = []formatTestCase{
 			       AlignClauses: true,
 			       StripQuotes: true,
 			       FormatSelectList: true,
-			       RefactorLongSubqueriesToCTE: true,
 		       },
 	       },
 }

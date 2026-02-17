@@ -21,7 +21,6 @@ You can enable or disable individual formatting rules via `sqlfmt.yaml`:
 | Align Clauses       | `align_clauses`                    | Align major SQL clauses for readability                            |
 | Strip Quotes        | `strip_quotes`                     | Remove quotes from identifiers when safe                           |
 | Format SELECT List  | `format_select_list`               | Format long SELECT lists vertically and aligned                    |
-| Refactor Subqueries to CTE | `refactor_long_subqueries_to_cte` | Refactor long/non-correlated subqueries into CTEs (experimental)   |
 | Require Explicit AS | `require_explicit_as`              | Require all column and table aliases to use the AS keyword         |
 
 Example `sqlfmt.yaml`:
@@ -32,7 +31,6 @@ rules:
   align_clauses: true
   strip_quotes: true
   format_select_list: true
-  refactor_long_subqueries_to_cte: false
   require_explicit_as: false
 ```
 
@@ -42,7 +40,6 @@ rules:
 - Aligns major SQL clauses (SELECT, FROM, WHERE, etc.) for readability.
 - Formats long SELECT lists vertically, with consistent indentation.
 - Strips quotes from identifiers when safe.
-- Optionally refactors long/non-correlated subqueries into CTEs.
 - Designed for Snowflake SQL, but extensible to other dialects with grammar changes.
 
 ## Usage

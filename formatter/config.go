@@ -11,7 +11,6 @@ type RulesConfig struct {
 	AlignClauses                  bool `yaml:"align_clauses"`
 	StripQuotes                   bool `yaml:"strip_quotes"`
 	FormatSelectList              bool `yaml:"format_select_list"`
-	RefactorLongSubqueriesToCTE   bool `yaml:"refactor_long_subqueries_to_cte"`
 	RequireExplicitAS             bool `yaml:"require_explicit_as"`
 }
 

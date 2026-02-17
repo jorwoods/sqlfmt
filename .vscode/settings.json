@@ -3,6 +3,14 @@
         "/^go test -v \\./formatter$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "/^cd /home/jordan/source/sqlfmt && go test \\./formatter$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^cd /home/jordan/source/sqlfmt && go test \\./\\.\\.\\.$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     }
 }
