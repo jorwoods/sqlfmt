@@ -1,61 +1,107 @@
 package formatter
 
 import (
+	"strings"
+
 	antlr "github.com/antlr4-go/antlr/v4"
 	"github.com/jorwoods/sqlfmt/parser"
-	"strings"
 )
 
-// enforceExplicitAliasAS returns a new SQL string with explicit AS for all aliases in SELECT and FROM
-// enforceExplicitAliasASWithConfig returns a new SQL string with explicit AS for all aliases in SELECT and FROM, respecting config
-func enforceExplicitAliasASWithConfig(tokens antlr.TokenStream, cfg *Config) string {
-       var out strings.Builder
-       total := tokens.Size()
-       isWordType := func(ttype int) bool {
-	       return ttype == parser.SnowflakeLexerID ||
-		      ttype == parser.SnowflakeLexerID2 ||
-		      ttype == parser.SnowflakeLexerDOUBLE_QUOTE_ID ||
-		      ttype == parser.SnowflakeLexerIDENTIFIER ||
-		      ttype == parser.SnowflakeLexerAS ||
-		      ttype == parser.SnowflakeLexerNUMBER
-       }
-       i := 0
-       for i < total {
-	       tok := tokens.Get(i)
-	       text := tok.GetText()
-	       ttype := tok.GetTokenType()
-	       if tok.GetChannel() != antlr.TokenDefaultChannel || text == "<EOF>" {
-		       i++
-		       continue
-	       }
-	       // Only apply AS insertion in SELECT/ FROM if FormatSelectList is false or not in a select list
-	       if i < total-1 {
-		       next := tokens.Get(i+1)
-		       if isWordType(ttype) && isWordType(next.GetTokenType()) && isSelectOrFromAliasPattern(tok, next, tokens, i) {
-			       // Only insert AS if FormatSelectList is false or not in a select list
-			       if cfg == nil || !cfg.Rules.FormatSelectList {
-				       if out.Len() > 0 && ttype != parser.SnowflakeLexerCOMMA && ttype != parser.SnowflakeLexerRR_BRACKET {
-					       out.WriteString(" ")
-				       }
-				       out.WriteString(text)
-				       out.WriteString(" AS ")
-				       out.WriteString(next.GetText())
-				       i += 2
-				       if i < total && tokens.Get(i).GetTokenType() == parser.SnowflakeLexerCOMMA {
-					       out.WriteString(",")
-					       i++
-				       }
-				       continue
-			       }
-		       }
-	       }
-	       if out.Len() > 0 && ttype != parser.SnowflakeLexerCOMMA && ttype != parser.SnowflakeLexerRR_BRACKET {
-		       out.WriteString(" ")
-	       }
-	       out.WriteString(text)
-	       i++
-       }
-       return out.String()
+func nextDefaultTokenIndex(tokens antlr.TokenStream, i int) int {
+	for j := i + 1; j < tokens.Size(); j++ {
+		tok := tokens.Get(j)
+		if tok.GetChannel() == antlr.TokenDefaultChannel {
+			return j
+		}
+	}
+	return -1
+}
+
+func prevDefaultTokenIndex(tokens antlr.TokenStream, i int) int {
+	for j := i - 1; j >= 0; j-- {
+		tok := tokens.Get(j)
+		if tok.GetChannel() == antlr.TokenDefaultChannel {
+			return j
+		}
+	}
+	return -1
+}
+
+func isWordLikeToken(tok antlr.Token) bool {
+	text := strings.TrimSpace(tok.GetText())
+	if text == "" || strings.EqualFold(text, "<EOF>") {
+		return false
+	}
+	if isPunctuation(text) {
+		return false
+	}
+	return true
+}
+
+// requireExplicitAS mutates token *text* in-place so that aliases become explicit by suffixing " AS" onto the aliased token.
+// This operates purely on the token stream (no re-tokenization) and always inserts uppercase AS.
+func requireExplicitAS(tokens antlr.TokenStream, cfg *Config) {
+	if cfg == nil || !cfg.Rules.RequireExplicitAS {
+		return
+	}
+
+	currentClause := 0
+	for i := 0; i < tokens.Size(); i++ {
+		tok := tokens.Get(i)
+		if tok.GetChannel() != antlr.TokenDefaultChannel {
+			continue
+		}
+		text := tok.GetText()
+		ttype := tok.GetTokenType()
+		if strings.EqualFold(text, "<EOF>") {
+			break
+		}
+
+		if clauseTokenTypes[ttype] || ttype == parser.SnowflakeLexerJOIN {
+			currentClause = ttype
+			continue
+		}
+
+		// Only consider alias insertion within SELECT / FROM / JOIN clauses.
+		if currentClause != parser.SnowflakeLexerSELECT && currentClause != parser.SnowflakeLexerFROM && currentClause != parser.SnowflakeLexerJOIN {
+			continue
+		}
+		if ttype == parser.SnowflakeLexerAS {
+			continue
+		}
+		if !isWordLikeToken(tok) {
+			continue
+		}
+
+		nextIdx := nextDefaultTokenIndex(tokens, i)
+		if nextIdx == -1 {
+			continue
+		}
+		nextTok := tokens.Get(nextIdx)
+		if nextTok.GetTokenType() == parser.SnowflakeLexerAS {
+			continue
+		}
+		if clauseTokenTypes[nextTok.GetTokenType()] || nextTok.GetTokenType() == parser.SnowflakeLexerJOIN {
+			continue
+		}
+		if !isWordLikeToken(nextTok) {
+			continue
+		}
+
+		prevIdx := prevDefaultTokenIndex(tokens, i)
+		if prevIdx != -1 {
+			prevTok := tokens.Get(prevIdx)
+			if prevTok.GetTokenType() == parser.SnowflakeLexerAS {
+				continue
+			}
+		}
+
+		// Suffix AS onto the current token, unless it's already there.
+		if strings.HasSuffix(text, " AS") {
+			continue
+		}
+		tok.(*antlr.CommonToken).SetText(text + " AS")
+	}
 }
 
 // needsSpace determines if a space is needed between prev and curr token types
@@ -89,24 +135,4 @@ func needsSpace(prev, curr int) bool {
 	   return false
 }
 
-// isSelectOrFromAliasPattern detects col alias or table alias without AS
-func isSelectOrFromAliasPattern(tok, next antlr.Token, tokens antlr.TokenStream, idx int) bool {
-	   // Use enums for all identifier token types present in the generated lexer
-	   isIdent := func(ttype int) bool {
-			   return ttype == parser.SnowflakeLexerID ||
-					  ttype == parser.SnowflakeLexerID2 ||
-					  ttype == parser.SnowflakeLexerDOUBLE_QUOTE_ID ||
-					  ttype == parser.SnowflakeLexerIDENTIFIER
-	   }
-	   if isIdent(tok.GetTokenType()) && isIdent(next.GetTokenType()) {
-			   // Check previous token is not AS
-			   if idx > 0 {
-					   prev := tokens.Get(idx-1)
-					   if strings.EqualFold(prev.GetText(), "AS") {
-							   return false
-					   }
-			   }
-			   return true
-	   }
-	   return false
-}
+

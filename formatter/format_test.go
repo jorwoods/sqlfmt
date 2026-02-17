@@ -31,6 +31,18 @@ type formatTestCase struct {
 
 // All test cases now expect keywords and function names to be uppercased and clause detection to be grammar-driven.
 var testCases = []formatTestCase{
+	       {
+		       name: "require explicit AS for aliases",
+		       input: `select id user_id, name as user_name from users u` ,
+		       expected: "SELECT id AS user_id, name AS user_name FROM users AS u",
+		       rules: RulesConfig{UppercaseKeywords: true, RequireExplicitAS: true},
+	       },
+	       {
+		       name: "do not require explicit AS (default)",
+		       input: `select id user_id, name as user_name from users u` ,
+		       expected: "SELECT id user_id, name AS user_name FROM users u",
+		       rules: RulesConfig{UppercaseKeywords: true, RequireExplicitAS: false},
+	       },
        {
 	       name: "uppercase keywords only",
 	       input: `select id, name from users`,

@@ -5,3 +5,4 @@ rules:
   strip_quotes: true
   format_select_list: true
   refactor_long_subqueries_to_cte: false
+  require_explicit_as: false

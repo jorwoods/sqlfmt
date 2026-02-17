@@ -20,7 +20,10 @@ var clauseTokenTypes = map[int]bool{
 
 func isKeyword(token antlr.Token) bool {
 	// Use the token type from the generated lexer
-	return clauseTokenTypes[token.GetTokenType()]
+	if clauseTokenTypes[token.GetTokenType()] {
+		return true
+	}
+	return token.GetTokenType() == parser.SnowflakeLexerAS
 }
 
 func uppercaseKeywords(tokens antlr.TokenStream) {

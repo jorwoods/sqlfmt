@@ -1,0 +1,8 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^go test -v \\./formatter$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}
