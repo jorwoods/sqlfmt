@@ -11,6 +11,10 @@
         "/^cd /home/jordan/source/sqlfmt && go test \\./\\.\\.\\.$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "/^cd /home/jordan/source/sqlfmt && make clean && make generate && make build && make test$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     }
 }
