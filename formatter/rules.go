@@ -327,7 +327,7 @@ func joinTokens(tokens []string) string {
 	prev := ""
 	for _, text := range tokens {
 		if prev != "" {
-			if text == "," || text == ")" {
+			if text == "," || text == ")" || text == ";" {
 				// no space
 			} else if prev == "(" {
 				// no space
@@ -354,8 +354,8 @@ func tokensToText(tokens antlr.TokenStream) string {
 				       continue
 			       }
 			       if prev != "" {
-				       // No space before comma or after opening paren
-				       if text == "," || text == ")" {
+				       // No space before comma, semicolon, or after opening paren
+				       if text == "," || text == ")" || text == ";" {
 					       // no space
 				       } else if prev == "(" {
 					       // no space
@@ -371,4 +371,11 @@ func tokensToText(tokens antlr.TokenStream) string {
 
 func isPunctuation(s string) bool {
        return s == "," || s == "." || s == "(" || s == ")" || s == ";"
+}
+
+func ensureTrailingSemicolon(sql string) string {
+	trimmed := strings.TrimRight(sql, " \t\n\r")
+	trimmed = strings.TrimRight(trimmed, ";")
+	trimmed = strings.TrimRight(trimmed, " \t\n\r")
+	return trimmed + "\n;"
 }

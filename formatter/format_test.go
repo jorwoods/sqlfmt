@@ -69,13 +69,33 @@ var testCases = []formatTestCase{
 	       {
 		       name: "all rules enabled",
 		       input: `select "id", "name", age from "users" where age > 30`,
-		       expected: "SELECT id, name, age\n  FROM users\n WHERE age > 30",
+		       expected: "SELECT id, name, age\n  FROM users\n WHERE age > 30\n;",
 		       rules: RulesConfig{
 			       UppercaseKeywords: true,
-			       AlignClauses: true,
-			       StripQuotes: true,
-			       FormatSelectList: true,
+			       AlignClauses:      true,
+			       StripQuotes:       true,
+			       FormatSelectList:  true,
+			       RequireExplicitAS: true,
+			       TrailingSemicolon: true,
 		       },
+	       },
+	       {
+		       name: "trailing semicolon added when missing",
+		       input: `select id from users`,
+		       expected: "select id from users\n;",
+		       rules: RulesConfig{TrailingSemicolon: true},
+	       },
+	       {
+		       name: "trailing semicolon normalized to new line when present inline",
+		       input: `select id from users;`,
+		       expected: "select id from users\n;",
+		       rules: RulesConfig{TrailingSemicolon: true},
+	       },
+	       {
+		       name: "trailing semicolon with other rules",
+		       input: `select id from users`,
+		       expected: "SELECT id\n  FROM users\n;",
+		       rules: RulesConfig{UppercaseKeywords: true, AlignClauses: true, TrailingSemicolon: true},
 	       },
 }
 

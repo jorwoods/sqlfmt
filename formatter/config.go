@@ -12,6 +12,7 @@ type RulesConfig struct {
 	StripQuotes                   bool `yaml:"strip_quotes"`
 	FormatSelectList              bool `yaml:"format_select_list"`
 	RequireExplicitAS             bool `yaml:"require_explicit_as"`
+	TrailingSemicolon             bool `yaml:"trailing_semicolon"`
 }
 
 type Config struct {

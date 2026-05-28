@@ -10,7 +10,8 @@ func rulesAllDisabled(rules RulesConfig) bool {
 		!rules.AlignClauses &&
 		!rules.StripQuotes &&
 		!rules.FormatSelectList &&
-		!rules.RequireExplicitAS
+		!rules.RequireExplicitAS &&
+		!rules.TrailingSemicolon
 }
 
 func effectiveRules(cfg *Config) RulesConfig {
@@ -74,7 +75,11 @@ func FormatSQLWithConfig(input string, cfg *Config) string {
 
 	stream := lexAndParse(input)
 	applyTokenRules(stream, rules)
-	return render(stream, rules)
+	result := render(stream, rules)
+	if rules.TrailingSemicolon {
+		result = ensureTrailingSemicolon(result)
+	}
+	return result
 }
 
 // FormatSQL formats SQL using default rules (all enabled).
