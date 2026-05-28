@@ -373,6 +373,15 @@ func isPunctuation(s string) bool {
        return s == "," || s == "." || s == "(" || s == ")" || s == ";"
 }
 
+func normalizeNotEqual(tokens antlr.TokenStream) {
+	for i := 0; i < tokens.Size(); i++ {
+		tok := tokens.Get(i)
+		if tok.GetTokenType() == parser.SnowflakeLexerLTGT {
+			tok.(*antlr.CommonToken).SetText("!=")
+		}
+	}
+}
+
 func stripTrailingWhitespace(sql string) string {
 	lines := strings.Split(sql, "\n")
 	for i, line := range lines {

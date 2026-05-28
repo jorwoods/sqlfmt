@@ -98,6 +98,18 @@ var testCases = []formatTestCase{
 		       rules: RulesConfig{UppercaseKeywords: true, AlignClauses: true, TrailingSemicolon: true},
 	       },
 	       {
+		       name: "normalize not equal rewrites <> to !=",
+		       input: `select id from users where age <> 30`,
+		       expected: "SELECT id FROM users WHERE age != 30",
+		       rules: RulesConfig{UppercaseKeywords: true, NormalizeNotEqual: true},
+	       },
+	       {
+		       name: "normalize not equal leaves != unchanged",
+		       input: `select id from users where age != 30`,
+		       expected: "SELECT id FROM users WHERE age != 30",
+		       rules: RulesConfig{UppercaseKeywords: true, NormalizeNotEqual: true},
+	       },
+	       {
 		       name: "strip trailing whitespace does not alter clean output",
 		       input: "select id, name from users where age > 30",
 		       expected: "SELECT id, name\n  FROM users\n WHERE age > 30",

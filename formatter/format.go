@@ -12,7 +12,8 @@ func rulesAllDisabled(rules RulesConfig) bool {
 		!rules.FormatSelectList &&
 		!rules.RequireExplicitAS &&
 		!rules.TrailingSemicolon &&
-		!rules.StripTrailingWhitespace
+		!rules.StripTrailingWhitespace &&
+		!rules.NormalizeNotEqual
 }
 
 func effectiveRules(cfg *Config) RulesConfig {
@@ -51,6 +52,9 @@ func applyTokenRules(stream antlr.TokenStream, rules RulesConfig) {
 	if rules.RequireExplicitAS {
 		// Explicit aliasing operates on the token stream by mutating token text.
 		requireExplicitAS(stream, &Config{Rules: rules})
+	}
+	if rules.NormalizeNotEqual {
+		normalizeNotEqual(stream)
 	}
 }
 

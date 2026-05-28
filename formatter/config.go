@@ -14,6 +14,7 @@ type RulesConfig struct {
 	RequireExplicitAS             bool `yaml:"require_explicit_as"`
 	TrailingSemicolon             bool `yaml:"trailing_semicolon"`
 	StripTrailingWhitespace       bool `yaml:"strip_trailing_whitespace"`
+	NormalizeNotEqual             bool `yaml:"normalize_not_equal"`
 }
 
 type Config struct {
