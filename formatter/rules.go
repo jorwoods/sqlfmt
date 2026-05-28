@@ -373,6 +373,14 @@ func isPunctuation(s string) bool {
        return s == "," || s == "." || s == "(" || s == ")" || s == ";"
 }
 
+func stripTrailingWhitespace(sql string) string {
+	lines := strings.Split(sql, "\n")
+	for i, line := range lines {
+		lines[i] = strings.TrimRight(line, " \t")
+	}
+	return strings.Join(lines, "\n")
+}
+
 func ensureTrailingSemicolon(sql string) string {
 	trimmed := strings.TrimRight(sql, " \t\n\r")
 	trimmed = strings.TrimRight(trimmed, ";")

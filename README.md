@@ -22,6 +22,7 @@ You can enable or disable individual formatting rules via `sqlfmt.yaml`:
 | Strip Quotes        | `strip_quotes`                     | Remove quotes from identifiers when safe                           |
 | Format SELECT List  | `format_select_list`               | Format long SELECT lists vertically and aligned                    |
 | Require Explicit AS | `require_explicit_as`              | Require all column and table aliases to use the AS keyword         |
+| Strip Trailing Whitespace | `strip_trailing_whitespace`  | Remove trailing spaces and tabs from each line of output           |
 
 Example `sqlfmt.yaml`:
 

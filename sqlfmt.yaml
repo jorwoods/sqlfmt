@@ -5,3 +5,4 @@ rules:
   strip_quotes: true
   format_select_list: true
   require_explicit_as: false
+  strip_trailing_whitespace: true

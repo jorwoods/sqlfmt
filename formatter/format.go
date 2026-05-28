@@ -11,7 +11,8 @@ func rulesAllDisabled(rules RulesConfig) bool {
 		!rules.StripQuotes &&
 		!rules.FormatSelectList &&
 		!rules.RequireExplicitAS &&
-		!rules.TrailingSemicolon
+		!rules.TrailingSemicolon &&
+		!rules.StripTrailingWhitespace
 }
 
 func effectiveRules(cfg *Config) RulesConfig {
@@ -78,6 +79,9 @@ func FormatSQLWithConfig(input string, cfg *Config) string {
 	result := render(stream, rules)
 	if rules.TrailingSemicolon {
 		result = ensureTrailingSemicolon(result)
+	}
+	if rules.StripTrailingWhitespace {
+		result = stripTrailingWhitespace(result)
 	}
 	return result
 }

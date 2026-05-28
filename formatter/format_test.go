@@ -97,6 +97,30 @@ var testCases = []formatTestCase{
 		       expected: "SELECT id\n  FROM users\n;",
 		       rules: RulesConfig{UppercaseKeywords: true, AlignClauses: true, TrailingSemicolon: true},
 	       },
+	       {
+		       name: "strip trailing whitespace does not alter clean output",
+		       input: "select id, name from users where age > 30",
+		       expected: "SELECT id, name\n  FROM users\n WHERE age > 30",
+		       rules: RulesConfig{UppercaseKeywords: true, AlignClauses: true, StripTrailingWhitespace: true},
+	       },
+}
+
+func TestStripTrailingWhitespace(t *testing.T) {
+	cases := []struct {
+		input    string
+		expected string
+	}{
+		{"line one   \nline two\t\nline three", "line one\nline two\nline three"},
+		{"no trailing whitespace", "no trailing whitespace"},
+		{"  leading spaces", "  leading spaces"},
+		{"mixed   \n  indented   \nclean", "mixed\n  indented\nclean"},
+	}
+	for _, tc := range cases {
+		got := stripTrailingWhitespace(tc.input)
+		if got != tc.expected {
+			t.Errorf("stripTrailingWhitespace(%q) = %q, want %q", tc.input, got, tc.expected)
+		}
+	}
 }
 
 func TestFormatSQL(t *testing.T) {
