@@ -15,6 +15,7 @@ type RulesConfig struct {
 	TrailingSemicolon             bool `yaml:"trailing_semicolon"`
 	StripTrailingWhitespace       bool `yaml:"strip_trailing_whitespace"`
 	NormalizeNotEqual             bool `yaml:"normalize_not_equal"`
+	OperatorSpacing               bool `yaml:"operator_spacing"`
 }
 
 type Config struct {

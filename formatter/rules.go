@@ -7,6 +7,31 @@ import (
 	"github.com/jorwoods/sqlfmt/parser"
 )
 
+var operatorSymbols = map[string]bool{
+	"=": true, ">": true, ">=": true, "<": true, "<=": true,
+	"!=": true, "+": true, "-": true, "/": true,
+	// "*" excluded: doubles as SELECT * wildcard
+}
+
+var operatorTokenTypes = map[int]bool{
+	parser.SnowflakeLexerEQ:     true,
+	parser.SnowflakeLexerGT:     true,
+	parser.SnowflakeLexerGE:     true,
+	parser.SnowflakeLexerLT:     true,
+	parser.SnowflakeLexerLE:     true,
+	parser.SnowflakeLexerNE:     true,
+	parser.SnowflakeLexerPLUS:   true,
+	parser.SnowflakeLexerMINUS:  true,
+	parser.SnowflakeLexerDIVIDE: true,
+}
+
+func operatorSpacingEnabled(cfg *Config) bool {
+	if cfg == nil {
+		return true
+	}
+	return cfg.Rules.OperatorSpacing
+}
+
 // Clause keyword token types from the generated lexer
 var clauseTokenTypes = map[int]bool{
 	parser.SnowflakeLexerSELECT:  true,
@@ -79,7 +104,7 @@ func alignClausesOnly(tokens antlr.TokenStream, cfg *Config) string {
 		}
 		if clauseTokenTypes[ttype] {
 			if len(line) > 0 {
-				joined := joinTokens(line)
+				joined := joinTokens(line, operatorSpacingEnabled(cfg))
 				if currentIndent != "" {
 					joined = currentIndent + joined
 				}
@@ -97,7 +122,7 @@ func alignClausesOnly(tokens antlr.TokenStream, cfg *Config) string {
 		line = append(line, text)
 	}
 	if len(line) > 0 {
-		joined := joinTokens(line)
+		joined := joinTokens(line, operatorSpacingEnabled(cfg))
 		if currentIndent != "" {
 			joined = currentIndent + joined
 		}
@@ -145,7 +170,7 @@ func formatSelectListOnly(tokens antlr.TokenStream, cfg *Config) string {
 							comma = ""
 						}
 						if j == 0 {
-							out = append(out, selectIndent+joinTokens([]string{selectWord, ident+comma}))
+							out = append(out, selectIndent+joinTokens([]string{selectWord, ident + comma}, operatorSpacingEnabled(cfg)))
 						} else {
 							out = append(out, itemIndent+ident+comma)
 						}
@@ -176,7 +201,7 @@ func formatSelectListOnly(tokens antlr.TokenStream, cfg *Config) string {
 					comma = ""
 				}
 				if j == 0 {
-					out = append(out, selectIndent+joinTokens([]string{selectWord, ident+comma}))
+					out = append(out, selectIndent+joinTokens([]string{selectWord, ident + comma}, operatorSpacingEnabled(cfg)))
 				} else {
 					out = append(out, itemIndent+ident+comma)
 				}
@@ -189,7 +214,7 @@ func formatSelectListOnly(tokens antlr.TokenStream, cfg *Config) string {
 	   if len(afterSelect) > 0 {
 		   // Only add the clause line if it is not SELECT (to avoid duplicate SELECT)
 		   if !(len(afterSelect) == 1 && strings.ToUpper(afterSelect[0]) == "SELECT") {
-			   out = append(out, joinTokens(afterSelect))
+			   out = append(out, joinTokens(afterSelect, operatorSpacingEnabled(cfg)))
 		   }
 	   }
 	return strings.Join(out, "\n")
@@ -238,7 +263,7 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 							comma = ""
 						}
 						if j == 0 {
-							out = append(out, selectIndent+joinTokens([]string{selectWord, ident+comma}))
+							out = append(out, selectIndent+joinTokens([]string{selectWord, ident + comma}, operatorSpacingEnabled(cfg)))
 						} else {
 							out = append(out, itemIndent+ident+comma)
 						}
@@ -253,7 +278,7 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 			   if len(line) > 0 {
 				   // Only add the clause line if it is not SELECT (to avoid duplicate SELECT)
 				   if !(currentIndent == clauseIndent[parser.SnowflakeLexerSELECT] && len(line) == 1 && strings.ToUpper(line[0]) == "SELECT") {
-					   joined := joinTokens(line)
+					   joined := joinTokens(line, operatorSpacingEnabled(cfg))
 					   if currentIndent != "" {
 						   joined = currentIndent + joined
 					   }
@@ -299,7 +324,7 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 					comma = ""
 				}
 				if j == 0 {
-					out = append(out, selectIndent+joinTokens([]string{selectWord, ident+comma}))
+					out = append(out, selectIndent+joinTokens([]string{selectWord, ident + comma}, operatorSpacingEnabled(cfg)))
 				} else {
 					out = append(out, itemIndent+ident+comma)
 				}
@@ -312,7 +337,7 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 		inSelect = false
 	}
 	if len(line) > 0 {
-		joined := joinTokens(line)
+		joined := joinTokens(line, operatorSpacingEnabled(cfg))
 		if currentIndent != "" {
 			joined = currentIndent + joined
 		}
@@ -321,8 +346,9 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 	return strings.Join(out, "\n")
 }
 
-// joinTokens joins tokens with a single space, but avoids spaces before commas and after opening parens, matching tokensToText
-func joinTokens(tokens []string) string {
+// joinTokens joins tokens with a single space, but avoids spaces before commas and after opening parens.
+// When operatorSpacing is false, spaces around arithmetic and comparison operators are also suppressed.
+func joinTokens(tokens []string, operatorSpacing bool) string {
 	var out strings.Builder
 	prev := ""
 	for _, text := range tokens {
@@ -331,6 +357,8 @@ func joinTokens(tokens []string) string {
 				// no space
 			} else if prev == "(" {
 				// no space
+			} else if !operatorSpacing && (operatorSymbols[text] || operatorSymbols[prev]) {
+				// compact mode: no space around operators
 			} else {
 				out.WriteString(" ")
 			}
@@ -345,28 +373,33 @@ func rightAlignClauses(tokens antlr.TokenStream) string {
 	return rightAlignClausesWithConfig(tokens, nil)
 }
 
-func tokensToText(tokens antlr.TokenStream) string {
-		       var out strings.Builder
-		       prev := ""
-		       for i := 0; i < tokens.Size(); i++ {
-			       text := strings.TrimSpace(tokens.Get(i).GetText())
-			       if strings.ToUpper(text) == "<EOF>" || text == "" {
-				       continue
-			       }
-			       if prev != "" {
-				       // No space before comma, semicolon, or after opening paren
-				       if text == "," || text == ")" || text == ";" {
-					       // no space
-				       } else if prev == "(" {
-					       // no space
-				       } else {
-					       out.WriteString(" ")
-				       }
-			       }
-			       out.WriteString(text)
-			       prev = text
-		       }
-		       return out.String()
+func tokensToText(tokens antlr.TokenStream, operatorSpacing bool) string {
+	var out strings.Builder
+	prev := ""
+	prevTtype := -1
+	for i := 0; i < tokens.Size(); i++ {
+		tok := tokens.Get(i)
+		text := strings.TrimSpace(tok.GetText())
+		ttype := tok.GetTokenType()
+		if strings.ToUpper(text) == "<EOF>" || text == "" {
+			continue
+		}
+		if prev != "" {
+			if text == "," || text == ")" || text == ";" {
+				// no space
+			} else if prev == "(" {
+				// no space
+			} else if !operatorSpacing && (operatorTokenTypes[ttype] || operatorTokenTypes[prevTtype]) {
+				// compact mode: no space around operators
+			} else {
+				out.WriteString(" ")
+			}
+		}
+		out.WriteString(text)
+		prev = text
+		prevTtype = ttype
+	}
+	return out.String()
 }
 
 func isPunctuation(s string) bool {

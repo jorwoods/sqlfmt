@@ -26,6 +26,7 @@ func effectiveRules(cfg *Config) RulesConfig {
 		StripQuotes:                 true,
 		FormatSelectList:            true,
 		RequireExplicitAS:           false,
+		OperatorSpacing:             true,
 	}
 }
 
@@ -68,7 +69,7 @@ func render(stream antlr.TokenStream, rules RulesConfig) string {
 	if rules.FormatSelectList {
 		return formatSelectListOnly(stream, &Config{Rules: rules})
 	}
-	return tokensToText(stream)
+	return tokensToText(stream, rules.OperatorSpacing)
 }
 
 // FormatSQLWithConfig formats SQL using the provided config.

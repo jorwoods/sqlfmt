@@ -52,7 +52,7 @@ var testCases = []formatTestCase{
 	       name: "align clauses only",
 	       input: `select id, name from users where age > 30`,
 	       expected: "select id, name\n  from users\n where age > 30",
-	       rules: RulesConfig{AlignClauses: true},
+	       rules: RulesConfig{AlignClauses: true, OperatorSpacing: true},
        },
        {
 	       name: "strip quotes only",
@@ -77,6 +77,7 @@ var testCases = []formatTestCase{
 			       FormatSelectList:  true,
 			       RequireExplicitAS: true,
 			       TrailingSemicolon: true,
+			       OperatorSpacing:   true,
 		       },
 	       },
 	       {
@@ -101,19 +102,31 @@ var testCases = []formatTestCase{
 		       name: "normalize not equal rewrites <> to !=",
 		       input: `select id from users where age <> 30`,
 		       expected: "SELECT id FROM users WHERE age != 30",
-		       rules: RulesConfig{UppercaseKeywords: true, NormalizeNotEqual: true},
+		       rules: RulesConfig{UppercaseKeywords: true, NormalizeNotEqual: true, OperatorSpacing: true},
 	       },
 	       {
 		       name: "normalize not equal leaves != unchanged",
 		       input: `select id from users where age != 30`,
 		       expected: "SELECT id FROM users WHERE age != 30",
-		       rules: RulesConfig{UppercaseKeywords: true, NormalizeNotEqual: true},
+		       rules: RulesConfig{UppercaseKeywords: true, NormalizeNotEqual: true, OperatorSpacing: true},
+	       },
+	       {
+		       name: "operator_spacing true ensures spaces around operators",
+		       input: `select id from users where age>=30`,
+		       expected: "SELECT id FROM users WHERE age >= 30",
+		       rules: RulesConfig{UppercaseKeywords: true, OperatorSpacing: true},
+	       },
+	       {
+		       name: "operator_spacing false produces compact operators",
+		       input: `select id from users where age = 30`,
+		       expected: "SELECT id FROM users WHERE age=30",
+		       rules: RulesConfig{UppercaseKeywords: true, OperatorSpacing: false},
 	       },
 	       {
 		       name: "strip trailing whitespace does not alter clean output",
 		       input: "select id, name from users where age > 30",
 		       expected: "SELECT id, name\n  FROM users\n WHERE age > 30",
-		       rules: RulesConfig{UppercaseKeywords: true, AlignClauses: true, StripTrailingWhitespace: true},
+		       rules: RulesConfig{UppercaseKeywords: true, AlignClauses: true, StripTrailingWhitespace: true, OperatorSpacing: true},
 	       },
 }
 

@@ -7,3 +7,4 @@ rules:
   require_explicit_as: false
   strip_trailing_whitespace: true
   normalize_not_equal: true
+  operator_spacing: true

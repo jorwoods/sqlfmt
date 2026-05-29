@@ -24,6 +24,7 @@ You can enable or disable individual formatting rules via `sqlfmt.yaml`:
 | Require Explicit AS | `require_explicit_as`              | Require all column and table aliases to use the AS keyword         |
 | Strip Trailing Whitespace | `strip_trailing_whitespace`  | Remove trailing spaces and tabs from each line of output           |
 | Normalize Not Equal | `normalize_not_equal`            | Rewrite `<>` to `!=`                                               |
+| Operator Spacing    | `operator_spacing`               | Ensure spaces around operators; `false` enables compact mode (`a=b`) |
 
 Example `sqlfmt.yaml`:
 
