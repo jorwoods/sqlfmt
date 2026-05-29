@@ -16,6 +16,7 @@ type RulesConfig struct {
 	StripTrailingWhitespace       bool `yaml:"strip_trailing_whitespace"`
 	NormalizeNotEqual             bool `yaml:"normalize_not_equal"`
 	OperatorSpacing               bool `yaml:"operator_spacing"`
+	BlankLinesBetweenStatements   bool `yaml:"blank_lines_between_statements"`
 }
 
 type Config struct {

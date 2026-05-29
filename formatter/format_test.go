@@ -123,6 +123,24 @@ var testCases = []formatTestCase{
 		       rules: RulesConfig{UppercaseKeywords: true, OperatorSpacing: false},
 	       },
 	       {
+		       name: "blank lines between statements with inline semicolons",
+		       input: `select id from users; select name from products`,
+		       expected: "SELECT id FROM users\n;\n\nSELECT name FROM products",
+		       rules: RulesConfig{UppercaseKeywords: true, BlankLinesBetweenStatements: true},
+	       },
+	       {
+		       name: "blank lines between statements with trailing semicolon rule",
+		       input: `select id from users; select name from products`,
+		       expected: "SELECT id FROM users\n;\n\nSELECT name FROM products\n;",
+		       rules: RulesConfig{UppercaseKeywords: true, TrailingSemicolon: true, BlankLinesBetweenStatements: true},
+	       },
+	       {
+		       name: "blank lines between statements single statement unchanged",
+		       input: `select id from users`,
+		       expected: "SELECT id FROM users",
+		       rules: RulesConfig{UppercaseKeywords: true, BlankLinesBetweenStatements: true},
+	       },
+	       {
 		       name: "strip trailing whitespace does not alter clean output",
 		       input: "select id, name from users where age > 30",
 		       expected: "SELECT id, name\n  FROM users\n WHERE age > 30",

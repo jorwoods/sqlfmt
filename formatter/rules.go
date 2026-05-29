@@ -115,6 +115,19 @@ func alignClausesOnly(tokens antlr.TokenStream, cfg *Config) string {
 			line = []string{text}
 			continue
 		}
+		if ttype == parser.SnowflakeLexerSEMI {
+			if len(line) > 0 {
+				joined := joinTokens(line, operatorSpacingEnabled(cfg))
+				if currentIndent != "" {
+					joined = currentIndent + joined
+				}
+				out = append(out, joined)
+				line = nil
+			}
+			out = append(out, ";")
+			currentIndent = ""
+			continue
+		}
 		if text == "," && len(line) > 0 {
 			line[len(line)-1] += ","
 			continue
@@ -151,6 +164,34 @@ func formatSelectListOnly(tokens antlr.TokenStream, cfg *Config) string {
 		ttype := tok.GetTokenType()
 		if strings.ToUpper(text) == "<EOF>" {
 			break
+		}
+		if ttype == parser.SnowflakeLexerSEMI {
+			if inSelect {
+				if len(selectIdents) > 3 {
+					for j, ident := range selectIdents {
+						comma := ","
+						if j == len(selectIdents)-1 {
+							comma = ""
+						}
+						if j == 0 {
+							out = append(out, selectIndent+joinTokens([]string{selectWord, ident + comma}, operatorSpacingEnabled(cfg)))
+						} else {
+							out = append(out, itemIndent+ident+comma)
+						}
+					}
+				} else if len(selectIdents) > 0 {
+					out = append(out, selectIndent+selectWord+" "+strings.Join(selectIdents, ", "))
+				}
+				selectIdents = nil
+				inSelect = false
+			} else if len(afterSelect) > 0 {
+				if !(len(afterSelect) == 1 && strings.ToUpper(afterSelect[0]) == "SELECT") {
+					out = append(out, joinTokens(afterSelect, operatorSpacingEnabled(cfg)))
+				}
+				afterSelect = nil
+			}
+			out = append(out, ";")
+			continue
 		}
 		if ttype == parser.SnowflakeLexerSELECT {
 			inSelect = true
@@ -249,6 +290,44 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 		ttype := tok.GetTokenType()
 		if strings.ToUpper(text) == "<EOF>" {
 			break
+		}
+		if ttype == parser.SnowflakeLexerSEMI {
+			if inSelect && len(selectIdents) > 0 {
+				selectWord := lastClauseText
+				if selectWord == "" {
+					selectWord = "SELECT"
+				}
+				if len(selectIdents) > 3 {
+					for j, ident := range selectIdents {
+						comma := ","
+						if j == len(selectIdents)-1 {
+							comma = ""
+						}
+						if j == 0 {
+							out = append(out, selectIndent+joinTokens([]string{selectWord, ident + comma}, operatorSpacingEnabled(cfg)))
+						} else {
+							out = append(out, itemIndent+ident+comma)
+						}
+					}
+				} else {
+					out = append(out, selectIndent+selectWord+" "+strings.Join(selectIdents, ", "))
+				}
+				selectIdents = nil
+				inSelect = false
+			}
+			if len(line) > 0 {
+				if !(currentIndent == clauseIndent[parser.SnowflakeLexerSELECT] && len(line) == 1 && strings.ToUpper(line[0]) == "SELECT") {
+					joined := joinTokens(line, operatorSpacingEnabled(cfg))
+					if currentIndent != "" {
+						joined = currentIndent + joined
+					}
+					out = append(out, joined)
+				}
+				line = nil
+			}
+			out = append(out, ";")
+			currentIndent = ""
+			continue
 		}
 		if clauseTokenTypes[ttype] {
 			if inSelect && len(selectIdents) > 0 {
@@ -384,10 +463,24 @@ func tokensToText(tokens antlr.TokenStream, operatorSpacing bool) string {
 		if strings.ToUpper(text) == "<EOF>" || text == "" {
 			continue
 		}
+		// Semicolons always go on their own line to avoid false positives in
+		// blankLinesBetweenStatements and to keep formatting consistent with trailing_semicolon.
+		if text == ";" {
+			if prev != "" {
+				out.WriteString("\n")
+			}
+			out.WriteString(";")
+			if hasMoreNonEOFTokens(tokens, i) {
+				out.WriteString("\n")
+			}
+			prev = "\n"
+			prevTtype = ttype
+			continue
+		}
 		if prev != "" {
-			if text == "," || text == ")" || text == ";" {
+			if text == "," || text == ")" {
 				// no space
-			} else if prev == "(" {
+			} else if prev == "(" || prev == "\n" {
 				// no space
 			} else if !operatorSpacing && (operatorTokenTypes[ttype] || operatorTokenTypes[prevTtype]) {
 				// compact mode: no space around operators
@@ -413,6 +506,31 @@ func normalizeNotEqual(tokens antlr.TokenStream) {
 			tok.(*antlr.CommonToken).SetText("!=")
 		}
 	}
+}
+
+// blankLinesBetweenStatements inserts a blank line after lines that are exactly ";".
+// All renderers guarantee semicolons appear on their own line, so an exact match is safe
+// and avoids false positives from semicolons inside string literals.
+func blankLinesBetweenStatements(sql string) string {
+	lines := strings.Split(sql, "\n")
+	var out []string
+	for i, line := range lines {
+		out = append(out, line)
+		if strings.TrimSpace(line) == ";" && i < len(lines)-1 && strings.TrimSpace(lines[i+1]) != "" {
+			out = append(out, "")
+		}
+	}
+	return strings.Join(out, "\n")
+}
+
+func hasMoreNonEOFTokens(tokens antlr.TokenStream, from int) bool {
+	for j := from + 1; j < tokens.Size(); j++ {
+		text := strings.TrimSpace(tokens.Get(j).GetText())
+		if text != "" && !strings.EqualFold(text, "<EOF>") {
+			return true
+		}
+	}
+	return false
 }
 
 func stripTrailingWhitespace(sql string) string {

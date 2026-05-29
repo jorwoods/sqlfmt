@@ -13,7 +13,8 @@ func rulesAllDisabled(rules RulesConfig) bool {
 		!rules.RequireExplicitAS &&
 		!rules.TrailingSemicolon &&
 		!rules.StripTrailingWhitespace &&
-		!rules.NormalizeNotEqual
+		!rules.NormalizeNotEqual &&
+		!rules.BlankLinesBetweenStatements
 }
 
 func effectiveRules(cfg *Config) RulesConfig {
@@ -87,6 +88,9 @@ func FormatSQLWithConfig(input string, cfg *Config) string {
 	}
 	if rules.StripTrailingWhitespace {
 		result = stripTrailingWhitespace(result)
+	}
+	if rules.BlankLinesBetweenStatements {
+		result = blankLinesBetweenStatements(result)
 	}
 	return result
 }

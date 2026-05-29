@@ -25,6 +25,7 @@ You can enable or disable individual formatting rules via `sqlfmt.yaml`:
 | Strip Trailing Whitespace | `strip_trailing_whitespace`  | Remove trailing spaces and tabs from each line of output           |
 | Normalize Not Equal | `normalize_not_equal`            | Rewrite `<>` to `!=`                                               |
 | Operator Spacing    | `operator_spacing`               | Ensure spaces around operators; `false` enables compact mode (`a=b`) |
+| Blank Lines Between Statements | `blank_lines_between_statements` | Insert a blank line between SQL statements    |
 
 Example `sqlfmt.yaml`:
 
