@@ -20,7 +20,8 @@ func rulesAllDisabled(rules RulesConfig) bool {
 		!rules.UppercaseFunctions &&
 		!rules.NewlineBeforeJoin &&
 		!rules.NewlineBeforeOn &&
-		!rules.IndentCaseWhen
+		!rules.IndentCaseWhen &&
+		!rules.LeadingComma
 }
 
 func effectiveRules(cfg *Config) RulesConfig {
@@ -97,6 +98,9 @@ func FormatSQLWithConfig(input string, cfg *Config) string {
 	result := render(stream, rules)
 	if rules.IndentCaseWhen {
 		result = formatCaseExpressions(result)
+	}
+	if rules.LeadingComma {
+		result = applyLeadingCommas(result)
 	}
 	if rules.TrailingSemicolon {
 		result = ensureTrailingSemicolon(result)

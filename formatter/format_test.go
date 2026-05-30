@@ -281,6 +281,24 @@ var testCases = []formatTestCase{
 		expected: "SELECT CASE\n           WHEN a = 1 THEN CASE\n                               WHEN b = 2 THEN 'x'\n                               ELSE 'y'\n                           END\n           ELSE 'z'\n       END FROM t",
 		rules:    RulesConfig{UppercaseKeywords: true, IndentCaseWhen: true, OperatorSpacing: true},
 	},
+	{
+		name:     "leading_comma: multi-column SELECT with format_select_list",
+		input:    `select col_a, col_b, col_c, col_d from t`,
+		expected: "SELECT col_a\n     , col_b\n     , col_c\n     , col_d\n  FROM t",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, FormatSelectList: true, LeadingComma: true, OperatorSpacing: true},
+	},
+	{
+		name:     "leading_comma: single-line SELECT unchanged",
+		input:    `select col_a, col_b from t`,
+		expected: "SELECT col_a, col_b FROM t",
+		rules:    RulesConfig{UppercaseKeywords: true, LeadingComma: true, OperatorSpacing: true},
+	},
+	{
+		name:     "leading_comma: with trailing_semicolon",
+		input:    `select col_a, col_b, col_c, col_d from t`,
+		expected: "SELECT col_a\n     , col_b\n     , col_c\n     , col_d\n  FROM t\n;",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, FormatSelectList: true, LeadingComma: true, TrailingSemicolon: true, OperatorSpacing: true},
+	},
 	       {
 		       name: "newline_before_and_or: AND not injected outside WHERE (SELECT clause)",
 		       input: `select id, case when a = 1 and b = 2 then 'y' else 'n' end from users where c = 3`,

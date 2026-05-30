@@ -923,6 +923,31 @@ func hasMoreNonEOFTokens(tokens antlr.TokenStream, from int) bool {
 	return false
 }
 
+// applyLeadingCommas moves trailing commas to the start of the following line.
+// It only fires when a comma ends a line and the next line is indented by at least 2
+// spaces (i.e. it is a continuation item, not a new clause). The comma is placed 2
+// columns before the item so that column names stay aligned with the first item.
+func applyLeadingCommas(sql string) string {
+	lines := strings.Split(sql, "\n")
+	for i := 0; i < len(lines)-1; i++ {
+		trimmed := strings.TrimRight(lines[i], " \t")
+		if !strings.HasSuffix(trimmed, ",") {
+			continue
+		}
+		nextLine := lines[i+1]
+		nextIndent := 0
+		for nextIndent < len(nextLine) && nextLine[nextIndent] == ' ' {
+			nextIndent++
+		}
+		if nextIndent < 2 {
+			continue
+		}
+		lines[i] = trimmed[:len(trimmed)-1]
+		lines[i+1] = strings.Repeat(" ", nextIndent-2) + ", " + nextLine[nextIndent:]
+	}
+	return strings.Join(lines, "\n")
+}
+
 func stripTrailingWhitespace(sql string) string {
 	lines := strings.Split(sql, "\n")
 	for i, line := range lines {

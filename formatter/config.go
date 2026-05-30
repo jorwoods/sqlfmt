@@ -23,6 +23,7 @@ type RulesConfig struct {
 	NewlineBeforeJoin             bool `yaml:"newline_before_join"`
 	NewlineBeforeOn               bool `yaml:"newline_before_on"`
 	IndentCaseWhen                bool `yaml:"indent_case_when"`
+	LeadingComma                  bool `yaml:"leading_comma"`
 }
 
 type Config struct {
