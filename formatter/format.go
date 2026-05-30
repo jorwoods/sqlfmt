@@ -17,7 +17,8 @@ func rulesAllDisabled(rules RulesConfig) bool {
 		!rules.BlankLinesBetweenStatements &&
 		!rules.NewlineBeforeAndOr &&
 		!rules.NormalizeBoolean &&
-		!rules.UppercaseFunctions
+		!rules.UppercaseFunctions &&
+		!rules.NewlineBeforeJoin
 }
 
 func effectiveRules(cfg *Config) RulesConfig {

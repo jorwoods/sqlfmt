@@ -201,6 +201,30 @@ var testCases = []formatTestCase{
 		       rules: RulesConfig{UppercaseKeywords: true, UppercaseFunctions: true},
 	       },
 	       {
+		       name: "newline_before_join bare JOIN, flat path",
+		       input: `select id from users join orders on uid = oid`,
+		       expected: "SELECT id FROM users\nJOIN orders ON uid = oid",
+		       rules: RulesConfig{UppercaseKeywords: true, NewlineBeforeJoin: true, OperatorSpacing: true},
+	       },
+	       {
+		       name: "newline_before_join INNER JOIN with align_clauses",
+		       input: `select id from users inner join orders on uid = oid`,
+		       expected: "SELECT id\n  FROM users\n  INNER JOIN orders ON uid = oid",
+		       rules: RulesConfig{UppercaseKeywords: true, AlignClauses: true, NewlineBeforeJoin: true, OperatorSpacing: true},
+	       },
+	       {
+		       name: "newline_before_join LEFT OUTER JOIN with align_clauses",
+		       input: `select id from users left outer join orders on uid = oid`,
+		       expected: "SELECT id\n  FROM users\n  LEFT OUTER JOIN orders ON uid = oid",
+		       rules: RulesConfig{UppercaseKeywords: true, AlignClauses: true, NewlineBeforeJoin: true, OperatorSpacing: true},
+	       },
+	       {
+		       name: "newline_before_join multiple joins with align_clauses",
+		       input: `select id from a inner join b on a_id = b_id left join c on b_id = c_id where age > 30`,
+		       expected: "SELECT id\n  FROM a\n  INNER JOIN b ON a_id = b_id\n  LEFT JOIN c ON b_id = c_id\n WHERE age > 30",
+		       rules: RulesConfig{UppercaseKeywords: true, AlignClauses: true, NewlineBeforeJoin: true, OperatorSpacing: true},
+	       },
+	       {
 		       name: "normalize_boolean uppercases true/false/null",
 		       input: `select id from users where active = true and deleted = false and name != null`,
 		       expected: `select id from users where active = TRUE and deleted = FALSE and name != NULL`,

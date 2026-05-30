@@ -20,6 +20,7 @@ type RulesConfig struct {
 	NewlineBeforeAndOr            bool `yaml:"newline_before_and_or"`
 	NormalizeBoolean              bool `yaml:"normalize_boolean"`
 	UppercaseFunctions            bool `yaml:"uppercase_functions"`
+	NewlineBeforeJoin             bool `yaml:"newline_before_join"`
 }
 
 type Config struct {

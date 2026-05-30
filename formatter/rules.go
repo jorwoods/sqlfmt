@@ -25,6 +25,15 @@ var operatorTokenTypes = map[int]bool{
 	parser.SnowflakeLexerDIVIDE: true,
 }
 
+var joinQualifierTypes = map[int]bool{
+	parser.SnowflakeLexerINNER:   true,
+	parser.SnowflakeLexerLEFT:    true,
+	parser.SnowflakeLexerRIGHT:   true,
+	parser.SnowflakeLexerFULL:    true,
+	parser.SnowflakeLexerCROSS:   true,
+	parser.SnowflakeLexerNATURAL: true,
+}
+
 var wherelikeClauseTypes = map[int]bool{
 	parser.SnowflakeLexerWHERE:   true,
 	parser.SnowflakeLexerHAVING:  true,
@@ -73,7 +82,16 @@ func isKeyword(token antlr.Token) bool {
 		parser.SnowflakeLexerWHEN,
 		parser.SnowflakeLexerTHEN,
 		parser.SnowflakeLexerELSE,
-		parser.SnowflakeLexerEND:
+		parser.SnowflakeLexerEND,
+		parser.SnowflakeLexerJOIN,
+		parser.SnowflakeLexerINNER,
+		parser.SnowflakeLexerLEFT,
+		parser.SnowflakeLexerRIGHT,
+		parser.SnowflakeLexerFULL,
+		parser.SnowflakeLexerCROSS,
+		parser.SnowflakeLexerOUTER,
+		parser.SnowflakeLexerNATURAL,
+		parser.SnowflakeLexerON:
 		return true
 	}
 	return false
@@ -111,6 +129,10 @@ func alignClausesOnly(tokens antlr.TokenStream, cfg *Config) string {
 	var currentIndent string
 	currentClause := 0
 	newlineAndOr := cfg != nil && cfg.Rules.NewlineBeforeAndOr
+	joinStarts := map[int]bool{}
+	if cfg != nil && cfg.Rules.NewlineBeforeJoin {
+		joinStarts = scanJoinStarts(tokens)
+	}
 	clauseIndent := map[int]string{
 		parser.SnowflakeLexerSELECT:  "",
 		parser.SnowflakeLexerFROM:    "  ",
@@ -157,6 +179,12 @@ func alignClausesOnly(tokens antlr.TokenStream, cfg *Config) string {
 		if newlineAndOr && booleanOpTokens[ttype] && wherelikeClauseTypes[currentClause] {
 			flushLine()
 			currentIndent = booleanOpIndent[ttype]
+			line = []string{text}
+			continue
+		}
+		if joinStarts[i] {
+			flushLine()
+			currentIndent = "  "
 			line = []string{text}
 			continue
 		}
@@ -294,6 +322,10 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 	var currentIndent string
 	currentClause := 0
 	newlineAndOr := cfg != nil && cfg.Rules.NewlineBeforeAndOr
+	joinStarts := map[int]bool{}
+	if cfg != nil && cfg.Rules.NewlineBeforeJoin {
+		joinStarts = scanJoinStarts(tokens)
+	}
 	clauseIndent := map[int]string{
 		parser.SnowflakeLexerSELECT:  "",
 		parser.SnowflakeLexerFROM:    "  ",
@@ -415,6 +447,19 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 			line = []string{text}
 			continue
 		}
+		if joinStarts[i] {
+			if len(line) > 0 {
+				joined := joinTokens(line, operatorSpacingEnabled(cfg))
+				if currentIndent != "" {
+					joined = currentIndent + joined
+				}
+				out = append(out, joined)
+				line = nil
+			}
+			currentIndent = "  "
+			line = []string{text}
+			continue
+		}
 		if inSelect {
 			if text == "," {
 				continue
@@ -499,6 +544,10 @@ func rightAlignClauses(tokens antlr.TokenStream) string {
 func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 	operatorSpacing := operatorSpacingEnabled(cfg)
 	newlineAndOr := cfg != nil && cfg.Rules.NewlineBeforeAndOr
+	joinStarts := map[int]bool{}
+	if cfg != nil && cfg.Rules.NewlineBeforeJoin {
+		joinStarts = scanJoinStarts(tokens)
+	}
 	currentClause := 0
 	var out strings.Builder
 	prev := ""
@@ -526,6 +575,13 @@ func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 			prevTtype = ttype
 			currentClause = 0
 			continue
+		}
+		// JOIN clause on its own line.
+		if joinStarts[i] {
+			if prev != "" && prev != "\n" {
+				out.WriteString("\n")
+			}
+			prev = "\n"
 		}
 		// AND/OR on their own line inside WHERE/HAVING/QUALIFY.
 		if newlineAndOr && booleanOpTokens[ttype] && wherelikeClauseTypes[currentClause] {
@@ -602,6 +658,37 @@ func normalizeBooleans(tokens antlr.TokenStream) {
 			tok.(*antlr.CommonToken).SetText(strings.ToUpper(tok.GetText()))
 		}
 	}
+}
+
+// scanJoinStarts returns a set of stream indices where a JOIN clause begins.
+// For qualified joins (LEFT JOIN, INNER JOIN, etc.) the index points to the
+// qualifier; for bare JOIN it points to the JOIN token itself.
+func scanJoinStarts(tokens antlr.TokenStream) map[int]bool {
+	starts := map[int]bool{}
+	for i := 0; i < tokens.Size(); i++ {
+		tok := tokens.Get(i)
+		if tok.GetChannel() != antlr.TokenDefaultChannel {
+			continue
+		}
+		if tok.GetTokenType() != parser.SnowflakeLexerJOIN {
+			continue
+		}
+		startIdx := i
+		for j := i - 1; j >= 0; j-- {
+			prev := tokens.Get(j)
+			if prev.GetChannel() != antlr.TokenDefaultChannel {
+				continue
+			}
+			pt := prev.GetTokenType()
+			if pt == parser.SnowflakeLexerOUTER || joinQualifierTypes[pt] {
+				startIdx = j
+			} else {
+				break
+			}
+		}
+		starts[startIdx] = true
+	}
+	return starts
 }
 
 func uppercaseFunctions(tokens antlr.TokenStream) {
