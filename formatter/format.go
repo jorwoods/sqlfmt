@@ -16,7 +16,8 @@ func rulesAllDisabled(rules RulesConfig) bool {
 		!rules.NormalizeNotEqual &&
 		!rules.BlankLinesBetweenStatements &&
 		!rules.NewlineBeforeAndOr &&
-		!rules.NormalizeBoolean
+		!rules.NormalizeBoolean &&
+		!rules.UppercaseFunctions
 }
 
 func effectiveRules(cfg *Config) RulesConfig {
@@ -62,6 +63,9 @@ func applyTokenRules(stream antlr.TokenStream, rules RulesConfig) {
 	}
 	if rules.NormalizeBoolean {
 		normalizeBooleans(stream)
+	}
+	if rules.UppercaseFunctions {
+		uppercaseFunctions(stream)
 	}
 }
 

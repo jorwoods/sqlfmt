@@ -478,6 +478,8 @@ func joinTokens(tokens []string, operatorSpacing bool) string {
 				// no space
 			} else if prev == "(" {
 				// no space
+			} else if text == "(" && isFunctionCallParen(prev) {
+				// no space before ( after function name
 			} else if !operatorSpacing && (operatorSymbols[text] || operatorSymbols[prev]) {
 				// compact mode: no space around operators
 			} else {
@@ -540,6 +542,8 @@ func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 				// no space
 			} else if prev == "(" || prev == "\n" {
 				// no space
+			} else if text == "(" && isFunctionCallParen(prev) {
+				// no space before ( after function name
 			} else if !operatorSpacing && (operatorTokenTypes[ttype] || operatorTokenTypes[prevTtype]) {
 				// compact mode
 			} else {
@@ -555,6 +559,25 @@ func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 
 func isPunctuation(s string) bool {
        return s == "," || s == "." || s == "(" || s == ")" || s == ";"
+}
+
+func isWordChar(b byte) bool {
+	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9') || b == '_'
+}
+
+// spaceBeforeParenKeywords lists SQL keywords that precede ( but are not function calls.
+var spaceBeforeParenKeywords = func() map[string]bool {
+	words := []string{"over", "in", "from", "select", "not", "on", "join"}
+	m := make(map[string]bool, len(words)*2)
+	for _, w := range words {
+		m[w] = true
+		m[strings.ToUpper(w)] = true
+	}
+	return m
+}()
+
+func isFunctionCallParen(prev string) bool {
+	return len(prev) > 0 && isWordChar(prev[len(prev)-1]) && !spaceBeforeParenKeywords[prev]
 }
 
 func normalizeNotEqual(tokens antlr.TokenStream) {
@@ -577,6 +600,25 @@ func normalizeBooleans(tokens antlr.TokenStream) {
 		tok := tokens.Get(i)
 		if booleanLiteralTypes[tok.GetTokenType()] {
 			tok.(*antlr.CommonToken).SetText(strings.ToUpper(tok.GetText()))
+		}
+	}
+}
+
+func uppercaseFunctions(tokens antlr.TokenStream) {
+	for i := 0; i < tokens.Size()-1; i++ {
+		tok := tokens.Get(i)
+		if tok.GetChannel() != antlr.TokenDefaultChannel {
+			continue
+		}
+		for j := i + 1; j < tokens.Size(); j++ {
+			next := tokens.Get(j)
+			if next.GetChannel() != antlr.TokenDefaultChannel {
+				continue
+			}
+			if next.GetTokenType() == parser.SnowflakeLexerLR_BRACKET {
+				tok.(*antlr.CommonToken).SetText(strings.ToUpper(tok.GetText()))
+			}
+			break
 		}
 	}
 }

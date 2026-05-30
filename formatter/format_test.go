@@ -183,6 +183,24 @@ var testCases = []formatTestCase{
 		       rules: RulesConfig{UppercaseKeywords: true, AlignClauses: true, NewlineBeforeAndOr: true, OperatorSpacing: true},
 	       },
 	       {
+		       name: "uppercase_functions uppercases built-in aggregates",
+		       input: `select count(*), sum(val), avg(val), max(val), min(val) from t`,
+		       expected: `select COUNT(*), SUM(val), AVG(val), MAX(val), MIN(val) from t`,
+		       rules: RulesConfig{UppercaseFunctions: true},
+	       },
+	       {
+		       name: "uppercase_functions uppercases window and scalar functions",
+		       input: `select coalesce(a, b), row_number() over (partition by x order by y) from t`,
+		       expected: `select COALESCE(a, b), ROW_NUMBER() OVER (partition by x order by y) from t`,
+		       rules: RulesConfig{UppercaseFunctions: true, OperatorSpacing: true},
+	       },
+	       {
+		       name: "uppercase_functions with uppercase_keywords",
+		       input: `select count(*) from users`,
+		       expected: `SELECT COUNT(*) FROM users`,
+		       rules: RulesConfig{UppercaseKeywords: true, UppercaseFunctions: true},
+	       },
+	       {
 		       name: "normalize_boolean uppercases true/false/null",
 		       input: `select id from users where active = true and deleted = false and name != null`,
 		       expected: `select id from users where active = TRUE and deleted = FALSE and name != NULL`,
