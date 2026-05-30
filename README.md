@@ -31,6 +31,7 @@ You can enable or disable individual formatting rules via `sqlfmt.yaml`:
 | Newline Before AND/OR          | `newline_before_and_or`            | Place AND/OR at the start of a new line in WHERE/HAVING clauses      |
 | Newline Before JOIN            | `newline_before_join`              | Place each JOIN clause on a new line                                 |
 | Newline Before ON              | `newline_before_on`                | Place the ON condition of a JOIN on a new line                       |
+| Indent CASE WHEN               | `indent_case_when`                 | Place WHEN, ELSE, and END each on their own indented line in CASE expressions |
 
 Example `sqlfmt.yaml`:
 
@@ -50,6 +51,7 @@ rules:
   newline_before_and_or: true
   newline_before_join: true
   newline_before_on: true
+  indent_case_when: true
 ```
 
 ## Features

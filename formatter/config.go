@@ -22,6 +22,7 @@ type RulesConfig struct {
 	UppercaseFunctions            bool `yaml:"uppercase_functions"`
 	NewlineBeforeJoin             bool `yaml:"newline_before_join"`
 	NewlineBeforeOn               bool `yaml:"newline_before_on"`
+	IndentCaseWhen                bool `yaml:"indent_case_when"`
 }
 
 type Config struct {

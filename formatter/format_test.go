@@ -254,6 +254,33 @@ var testCases = []formatTestCase{
 		       expected: `SELECT id FROM users WHERE active = TRUE`,
 		       rules: RulesConfig{UppercaseKeywords: true, NormalizeBoolean: true, OperatorSpacing: true},
 	       },
+	{
+		// CASE at col 7 ("SELECT " = 7), so WHEN/ELSE indent = 11, END indent = 7.
+		name:     "indent_case_when: searched CASE, flat path",
+		input:    `select case when a = 1 then 'x' else 'y' end from t`,
+		expected: "SELECT CASE\n           WHEN a = 1 THEN 'x'\n           ELSE 'y'\n       END FROM t",
+		rules:    RulesConfig{UppercaseKeywords: true, IndentCaseWhen: true, OperatorSpacing: true},
+	},
+	{
+		// CASE at col 11 ("SELECT id, " = 11), WHEN/ELSE indent = 15, END indent = 11.
+		name:     "indent_case_when: valued CASE with align_clauses",
+		input:    `select id, case status when 1 then 'active' when 2 then 'inactive' else 'unknown' end from users`,
+		expected: "SELECT id, CASE status\n               WHEN 1 THEN 'active'\n               WHEN 2 THEN 'inactive'\n               ELSE 'unknown'\n           END\n  FROM users",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, IndentCaseWhen: true, OperatorSpacing: true},
+	},
+	{
+		name:     "indent_case_when: CASE in WHERE clause",
+		input:    `select id from t where case a when 1 then true else false end = true`,
+		expected: "SELECT id\n  FROM t\n WHERE CASE a\n           WHEN 1 THEN TRUE\n           ELSE FALSE\n       END = TRUE",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, NormalizeBoolean: true, IndentCaseWhen: true, OperatorSpacing: true},
+	},
+	{
+		// Outer CASE at col 7; inner CASE at col 27 (after "           WHEN a = 1 THEN ").
+		name:     "indent_case_when: nested CASE",
+		input:    `select case when a = 1 then case when b = 2 then 'x' else 'y' end else 'z' end from t`,
+		expected: "SELECT CASE\n           WHEN a = 1 THEN CASE\n                               WHEN b = 2 THEN 'x'\n                               ELSE 'y'\n                           END\n           ELSE 'z'\n       END FROM t",
+		rules:    RulesConfig{UppercaseKeywords: true, IndentCaseWhen: true, OperatorSpacing: true},
+	},
 	       {
 		       name: "newline_before_and_or: AND not injected outside WHERE (SELECT clause)",
 		       input: `select id, case when a = 1 and b = 2 then 'y' else 'n' end from users where c = 3`,

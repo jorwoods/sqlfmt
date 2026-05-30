@@ -769,6 +769,150 @@ func blankLinesBetweenStatements(sql string) string {
 	return strings.Join(out, "\n")
 }
 
+// formatCaseExpressions reformats CASE expressions so that WHEN, ELSE, and END
+// each start on their own line, indented 4 spaces past the column of the CASE keyword.
+// END aligns with CASE. Nested CASEs are handled via a stack.
+// The function operates on an already-rendered SQL string and respects string literals
+// and quoted identifiers to avoid misidentifying keywords inside them.
+func formatCaseExpressions(sql string) string {
+	type frame struct{ caseCol int }
+	var stack []frame
+
+	var out strings.Builder
+	col := 0      // columns written since last newline
+	pending := "" // whitespace buffered between words
+
+	flushPending := func() {
+		if pending == "" {
+			return
+		}
+		out.WriteString(pending)
+		if idx := strings.LastIndex(pending, "\n"); idx >= 0 {
+			col = len(pending) - idx - 1
+		} else {
+			col += len(pending)
+		}
+		pending = ""
+	}
+
+	writeDirect := func(s string) {
+		out.WriteString(s)
+		if idx := strings.LastIndex(s, "\n"); idx >= 0 {
+			col = len(s) - idx - 1
+		} else {
+			col += len(s)
+		}
+	}
+
+	i := 0
+	for i < len(sql) {
+		ch := sql[i]
+
+		if ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' {
+			j := i
+			for j < len(sql) && (sql[j] == ' ' || sql[j] == '\t' || sql[j] == '\n' || sql[j] == '\r') {
+				j++
+			}
+			pending += sql[i:j]
+			i = j
+			continue
+		}
+
+		// Single-quoted string literal: copy verbatim, handle '' escapes.
+		if ch == '\'' {
+			flushPending()
+			j := i + 1
+			for j < len(sql) {
+				if sql[j] == '\'' {
+					j++
+					if j < len(sql) && sql[j] == '\'' {
+						j++ // escaped ''
+						continue
+					}
+					break
+				}
+				j++
+			}
+			writeDirect(sql[i:j])
+			i = j
+			continue
+		}
+
+		// Double-quoted identifier: copy verbatim.
+		if ch == '"' {
+			flushPending()
+			j := i + 1
+			for j < len(sql) && sql[j] != '"' {
+				j++
+			}
+			if j < len(sql) {
+				j++
+			}
+			writeDirect(sql[i:j])
+			i = j
+			continue
+		}
+
+		// Word token (keyword or identifier).
+		if isWordChar(ch) {
+			j := i
+			for j < len(sql) && isWordChar(sql[j]) {
+				j++
+			}
+			word := sql[i:j]
+			upper := strings.ToUpper(word)
+
+			switch upper {
+			case "CASE":
+				flushPending()
+				caseStartCol := col
+				writeDirect(word)
+				stack = append(stack, frame{caseCol: caseStartCol})
+			case "WHEN":
+				if len(stack) > 0 {
+					f := stack[len(stack)-1]
+					pending = ""
+					writeDirect("\n" + strings.Repeat(" ", f.caseCol+4))
+				} else {
+					flushPending()
+				}
+				writeDirect(word)
+			case "ELSE":
+				if len(stack) > 0 {
+					f := stack[len(stack)-1]
+					pending = ""
+					writeDirect("\n" + strings.Repeat(" ", f.caseCol+4))
+				} else {
+					flushPending()
+				}
+				writeDirect(word)
+			case "END":
+				if len(stack) > 0 {
+					f := stack[len(stack)-1]
+					pending = ""
+					writeDirect("\n" + strings.Repeat(" ", f.caseCol))
+					stack = stack[:len(stack)-1]
+				} else {
+					flushPending()
+				}
+				writeDirect(word)
+			default:
+				flushPending()
+				writeDirect(word)
+			}
+			i = j
+			continue
+		}
+
+		// Operators, punctuation, numbers.
+		flushPending()
+		writeDirect(string(ch))
+		i++
+	}
+	flushPending()
+	return out.String()
+}
+
 func hasMoreNonEOFTokens(tokens antlr.TokenStream, from int) bool {
 	for j := from + 1; j < tokens.Size(); j++ {
 		text := strings.TrimSpace(tokens.Get(j).GetText())
