@@ -347,6 +347,24 @@ var testCases = []formatTestCase{
 		expected: "SELECT id FROM users\n;\n",
 		rules:    RulesConfig{UppercaseKeywords: true, TrailingSemicolon: true, TrailingNewline: true},
 	},
+	{
+		name:     "newline_before_limit: LIMIT on its own line (flat path)",
+		input:    `select id from users limit 10`,
+		expected: "SELECT id FROM users\nLIMIT 10",
+		rules:    RulesConfig{UppercaseKeywords: true, NewlineBeforeLimit: true, OperatorSpacing: true},
+	},
+	{
+		name:     "newline_before_limit: LIMIT and OFFSET on their own lines with align_clauses",
+		input:    `select id from users order by id limit 10 offset 20`,
+		expected: "SELECT id\n  FROM users\n ORDER BY id\n LIMIT 10\n OFFSET 20",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, NewlineBeforeLimit: true, OperatorSpacing: true},
+	},
+	{
+		name:     "newline_before_limit: LIMIT only, no OFFSET",
+		input:    `select id from users where age > 30 limit 5`,
+		expected: "SELECT id\n  FROM users\n WHERE age > 30\n LIMIT 5",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, NewlineBeforeLimit: true, OperatorSpacing: true},
+	},
 	       {
 		       name: "newline_before_and_or: AND not injected outside WHERE (SELECT clause)",
 		       input: `select id, case when a = 1 and b = 2 then 'y' else 'n' end from users where c = 3`,

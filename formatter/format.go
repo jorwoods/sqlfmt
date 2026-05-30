@@ -23,7 +23,8 @@ func rulesAllDisabled(rules RulesConfig) bool {
 		!rules.IndentCaseWhen &&
 		!rules.LeadingComma &&
 		!rules.NormalizeNullComparison &&
-		!rules.TrailingNewline
+		!rules.TrailingNewline &&
+		!rules.NewlineBeforeLimit
 }
 
 func effectiveRules(cfg *Config) RulesConfig {

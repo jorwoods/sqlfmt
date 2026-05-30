@@ -35,6 +35,7 @@ You can enable or disable individual formatting rules via `sqlfmt.yaml`:
 | Leading Comma                  | `leading_comma`                    | Place commas at the start of each item line rather than the end of the previous line |
 | Normalize NULL Comparison      | `normalize_null_comparison`        | Rewrite `= NULL` to `IS NULL` and `!= NULL` / `<> NULL` to `IS NOT NULL`            |
 | Trailing Newline               | `trailing_newline`                 | Ensure the output ends with exactly one newline character                            |
+| Newline Before LIMIT/OFFSET    | `newline_before_limit`             | Place LIMIT and OFFSET each on their own line                                        |
 
 Example `sqlfmt.yaml`:
 
@@ -58,6 +59,7 @@ rules:
   leading_comma: false
   normalize_null_comparison: true
   trailing_newline: true
+  newline_before_limit: true
 ```
 
 ## Features

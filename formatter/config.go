@@ -26,6 +26,7 @@ type RulesConfig struct {
 	LeadingComma                  bool `yaml:"leading_comma"`
 	NormalizeNullComparison       bool `yaml:"normalize_null_comparison"`
 	TrailingNewline               bool `yaml:"trailing_newline"`
+	NewlineBeforeLimit            bool `yaml:"newline_before_limit"`
 }
 
 type Config struct {

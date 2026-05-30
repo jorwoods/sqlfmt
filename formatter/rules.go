@@ -93,7 +93,10 @@ func isKeyword(token antlr.Token) bool {
 		parser.SnowflakeLexerNATURAL,
 		parser.SnowflakeLexerON,
 		parser.SnowflakeLexerIS,
-		parser.SnowflakeLexerNOT:
+		parser.SnowflakeLexerNOT,
+		parser.SnowflakeLexerBY,
+		parser.SnowflakeLexerLIMIT,
+		parser.SnowflakeLexerOFFSET:
 		return true
 	}
 	return false
@@ -132,6 +135,7 @@ func alignClausesOnly(tokens antlr.TokenStream, cfg *Config) string {
 	currentClause := 0
 	newlineAndOr := cfg != nil && cfg.Rules.NewlineBeforeAndOr
 	newlineOn := cfg != nil && cfg.Rules.NewlineBeforeOn
+	newlineLimit := cfg != nil && cfg.Rules.NewlineBeforeLimit
 	inJoin := false
 	joinStarts := map[int]bool{}
 	if cfg != nil && cfg.Rules.NewlineBeforeJoin {
@@ -198,6 +202,12 @@ func alignClausesOnly(tokens antlr.TokenStream, cfg *Config) string {
 		if newlineOn && inJoin && ttype == parser.SnowflakeLexerON {
 			flushLine()
 			currentIndent = "    "
+			line = []string{text}
+			continue
+		}
+		if newlineLimit && (ttype == parser.SnowflakeLexerLIMIT || ttype == parser.SnowflakeLexerOFFSET) {
+			flushLine()
+			currentIndent = " "
 			line = []string{text}
 			continue
 		}
@@ -336,6 +346,7 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 	currentClause := 0
 	newlineAndOr := cfg != nil && cfg.Rules.NewlineBeforeAndOr
 	newlineOn := cfg != nil && cfg.Rules.NewlineBeforeOn
+	newlineLimit := cfg != nil && cfg.Rules.NewlineBeforeLimit
 	inJoin := false
 	joinStarts := map[int]bool{}
 	if cfg != nil && cfg.Rules.NewlineBeforeJoin {
@@ -491,6 +502,20 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 			line = []string{text}
 			continue
 		}
+		if newlineLimit && (ttype == parser.SnowflakeLexerLIMIT || ttype == parser.SnowflakeLexerOFFSET) {
+			if len(line) > 0 {
+				joined := joinTokens(line, operatorSpacingEnabled(cfg))
+				if currentIndent != "" {
+					joined = currentIndent + joined
+				}
+				out = append(out, joined)
+				line = nil
+			}
+			currentIndent = " "
+			inJoin = false
+			line = []string{text}
+			continue
+		}
 		if inSelect {
 			if text == "," {
 				continue
@@ -576,6 +601,7 @@ func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 	operatorSpacing := operatorSpacingEnabled(cfg)
 	newlineAndOr := cfg != nil && cfg.Rules.NewlineBeforeAndOr
 	newlineOn := cfg != nil && cfg.Rules.NewlineBeforeOn
+	newlineLimit := cfg != nil && cfg.Rules.NewlineBeforeLimit
 	joinStarts := map[int]bool{}
 	if cfg != nil && cfg.Rules.NewlineBeforeJoin {
 		joinStarts = scanJoinStarts(tokens)
@@ -618,6 +644,13 @@ func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 			}
 			prev = "\n"
 			inJoin = true
+		}
+		// LIMIT / OFFSET on their own line.
+		if newlineLimit && (ttype == parser.SnowflakeLexerLIMIT || ttype == parser.SnowflakeLexerOFFSET) {
+			if prev != "" && prev != "\n" {
+				out.WriteString("\n")
+			}
+			prev = "\n"
 		}
 		// ON on its own line inside a JOIN clause.
 		if newlineOn && inJoin && ttype == parser.SnowflakeLexerON {

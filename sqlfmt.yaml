@@ -13,3 +13,4 @@ rules:
   leading_comma: false
   normalize_null_comparison: true
   trailing_newline: true
+  newline_before_limit: true
