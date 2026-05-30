@@ -22,7 +22,8 @@ func rulesAllDisabled(rules RulesConfig) bool {
 		!rules.NewlineBeforeOn &&
 		!rules.IndentCaseWhen &&
 		!rules.LeadingComma &&
-		!rules.NormalizeNullComparison
+		!rules.NormalizeNullComparison &&
+		!rules.TrailingNewline
 }
 
 func effectiveRules(cfg *Config) RulesConfig {
@@ -114,6 +115,9 @@ func FormatSQLWithConfig(input string, cfg *Config) string {
 	}
 	if rules.BlankLinesBetweenStatements {
 		result = blankLinesBetweenStatements(result)
+	}
+	if rules.TrailingNewline {
+		result = ensureTrailingNewline(result)
 	}
 	return result
 }

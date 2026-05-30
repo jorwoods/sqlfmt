@@ -34,6 +34,7 @@ You can enable or disable individual formatting rules via `sqlfmt.yaml`:
 | Indent CASE WHEN               | `indent_case_when`                 | Place WHEN, ELSE, and END each on their own indented line in CASE expressions |
 | Leading Comma                  | `leading_comma`                    | Place commas at the start of each item line rather than the end of the previous line |
 | Normalize NULL Comparison      | `normalize_null_comparison`        | Rewrite `= NULL` to `IS NULL` and `!= NULL` / `<> NULL` to `IS NOT NULL`            |
+| Trailing Newline               | `trailing_newline`                 | Ensure the output ends with exactly one newline character                            |
 
 Example `sqlfmt.yaml`:
 
@@ -56,6 +57,7 @@ rules:
   indent_case_when: true
   leading_comma: false
   normalize_null_comparison: true
+  trailing_newline: true
 ```
 
 ## Features

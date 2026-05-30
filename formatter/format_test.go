@@ -329,6 +329,24 @@ var testCases = []formatTestCase{
 		expected: `SELECT id FROM users WHERE age = 30`,
 		rules:    RulesConfig{UppercaseKeywords: true, NormalizeNullComparison: true, OperatorSpacing: true},
 	},
+	{
+		name:     "trailing_newline: appended when missing",
+		input:    `select id from users`,
+		expected: "SELECT id FROM users\n",
+		rules:    RulesConfig{UppercaseKeywords: true, TrailingNewline: true},
+	},
+	{
+		name:     "trailing_newline: not doubled when already present",
+		input:    "select id from users\n",
+		expected: "SELECT id FROM users\n",
+		rules:    RulesConfig{UppercaseKeywords: true, TrailingNewline: true},
+	},
+	{
+		name:     "trailing_newline: works with trailing_semicolon",
+		input:    `select id from users`,
+		expected: "SELECT id FROM users\n;\n",
+		rules:    RulesConfig{UppercaseKeywords: true, TrailingSemicolon: true, TrailingNewline: true},
+	},
 	       {
 		       name: "newline_before_and_or: AND not injected outside WHERE (SELECT clause)",
 		       input: `select id, case when a = 1 and b = 2 then 'y' else 'n' end from users where c = 3`,
@@ -359,7 +377,10 @@ func TestFormatSQL(t *testing.T) {
 		       for _, tc := range testCases {
 			       t.Run(tc.name, func(t *testing.T) {
 				       cfg := &Config{Rules: tc.rules}
-				       output := strings.TrimSpace(FormatSQLWithConfig(tc.input, cfg))
+				       output := FormatSQLWithConfig(tc.input, cfg)
+			       if !tc.rules.TrailingNewline {
+				       output = strings.TrimSpace(output)
+			       }
 				       if output != tc.expected {
 					       t.Errorf("unexpected format output\n--- got:\n%s\n--- want:\n%s", output, tc.expected)
 				       }

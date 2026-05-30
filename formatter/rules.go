@@ -994,6 +994,13 @@ func stripTrailingWhitespace(sql string) string {
 	return strings.Join(lines, "\n")
 }
 
+func ensureTrailingNewline(sql string) string {
+	if strings.HasSuffix(sql, "\n") {
+		return sql
+	}
+	return sql + "\n"
+}
+
 func ensureTrailingSemicolon(sql string) string {
 	trimmed := strings.TrimRight(sql, " \t\n\r")
 	trimmed = strings.TrimRight(trimmed, ";")

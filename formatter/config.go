@@ -25,6 +25,7 @@ type RulesConfig struct {
 	IndentCaseWhen                bool `yaml:"indent_case_when"`
 	LeadingComma                  bool `yaml:"leading_comma"`
 	NormalizeNullComparison       bool `yaml:"normalize_null_comparison"`
+	TrailingNewline               bool `yaml:"trailing_newline"`
 }
 
 type Config struct {
