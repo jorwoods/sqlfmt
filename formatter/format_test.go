@@ -299,6 +299,36 @@ var testCases = []formatTestCase{
 		expected: "SELECT col_a\n     , col_b\n     , col_c\n     , col_d\n  FROM t\n;",
 		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, FormatSelectList: true, LeadingComma: true, TrailingSemicolon: true, OperatorSpacing: true},
 	},
+	{
+		name:     "normalize_null_comparison: = NULL becomes IS NULL",
+		input:    `select id from users where name = null`,
+		expected: `SELECT id FROM users WHERE name IS NULL`,
+		rules:    RulesConfig{UppercaseKeywords: true, NormalizeNullComparison: true, OperatorSpacing: true},
+	},
+	{
+		name:     "normalize_null_comparison: != NULL becomes IS NOT NULL",
+		input:    `select id from users where name != null`,
+		expected: `SELECT id FROM users WHERE name IS NOT NULL`,
+		rules:    RulesConfig{UppercaseKeywords: true, NormalizeNullComparison: true, OperatorSpacing: true},
+	},
+	{
+		name:     "normalize_null_comparison: <> NULL becomes IS NOT NULL",
+		input:    `select id from users where name <> null`,
+		expected: `SELECT id FROM users WHERE name IS NOT NULL`,
+		rules:    RulesConfig{UppercaseKeywords: true, NormalizeNullComparison: true, OperatorSpacing: true},
+	},
+	{
+		name:     "normalize_null_comparison: leaves IS NULL unchanged",
+		input:    `select id from users where name is null`,
+		expected: `SELECT id FROM users WHERE name IS NULL`,
+		rules:    RulesConfig{UppercaseKeywords: true, NormalizeBoolean: true, NormalizeNullComparison: true, OperatorSpacing: true},
+	},
+	{
+		name:     "normalize_null_comparison: leaves non-null comparisons unchanged",
+		input:    `select id from users where age = 30`,
+		expected: `SELECT id FROM users WHERE age = 30`,
+		rules:    RulesConfig{UppercaseKeywords: true, NormalizeNullComparison: true, OperatorSpacing: true},
+	},
 	       {
 		       name: "newline_before_and_or: AND not injected outside WHERE (SELECT clause)",
 		       input: `select id, case when a = 1 and b = 2 then 'y' else 'n' end from users where c = 3`,

@@ -24,6 +24,7 @@ type RulesConfig struct {
 	NewlineBeforeOn               bool `yaml:"newline_before_on"`
 	IndentCaseWhen                bool `yaml:"indent_case_when"`
 	LeadingComma                  bool `yaml:"leading_comma"`
+	NormalizeNullComparison       bool `yaml:"normalize_null_comparison"`
 }
 
 type Config struct {

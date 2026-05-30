@@ -21,7 +21,8 @@ func rulesAllDisabled(rules RulesConfig) bool {
 		!rules.NewlineBeforeJoin &&
 		!rules.NewlineBeforeOn &&
 		!rules.IndentCaseWhen &&
-		!rules.LeadingComma
+		!rules.LeadingComma &&
+		!rules.NormalizeNullComparison
 }
 
 func effectiveRules(cfg *Config) RulesConfig {
@@ -67,6 +68,9 @@ func applyTokenRules(stream antlr.TokenStream, rules RulesConfig) {
 	}
 	if rules.NormalizeBoolean {
 		normalizeBooleans(stream)
+	}
+	if rules.NormalizeNullComparison {
+		normalizeNullComparisons(stream)
 	}
 	if rules.UppercaseFunctions {
 		uppercaseFunctions(stream)

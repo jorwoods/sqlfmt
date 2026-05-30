@@ -11,3 +11,4 @@ rules:
   blank_lines_between_statements: true
   indent_case_when: true
   leading_comma: false
+  normalize_null_comparison: true

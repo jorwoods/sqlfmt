@@ -91,7 +91,9 @@ func isKeyword(token antlr.Token) bool {
 		parser.SnowflakeLexerCROSS,
 		parser.SnowflakeLexerOUTER,
 		parser.SnowflakeLexerNATURAL,
-		parser.SnowflakeLexerON:
+		parser.SnowflakeLexerON,
+		parser.SnowflakeLexerIS,
+		parser.SnowflakeLexerNOT:
 		return true
 	}
 	return false
@@ -678,6 +680,42 @@ var spaceBeforeParenKeywords = func() map[string]bool {
 
 func isFunctionCallParen(prev string) bool {
 	return len(prev) > 0 && isWordChar(prev[len(prev)-1]) && !spaceBeforeParenKeywords[prev]
+}
+
+// normalizeNullComparisons rewrites = NULL to IS NULL and != / <> NULL to IS NOT NULL.
+// Comparing with = or != against NULL is always incorrect SQL (always returns UNKNOWN),
+// so this rewrite produces the semantically intended form.
+func normalizeNullComparisons(tokens antlr.TokenStream) {
+	eqOrNeq := map[int]bool{
+		parser.SnowflakeLexerEQ:   true,
+		parser.SnowflakeLexerNE:   true,
+		parser.SnowflakeLexerLTGT: true,
+	}
+	size := tokens.Size()
+	for i := 0; i < size; i++ {
+		tok := tokens.Get(i)
+		if tok.GetChannel() != antlr.TokenDefaultChannel {
+			continue
+		}
+		if !eqOrNeq[tok.GetTokenType()] {
+			continue
+		}
+		for j := i + 1; j < size; j++ {
+			next := tokens.Get(j)
+			if next.GetChannel() != antlr.TokenDefaultChannel {
+				continue
+			}
+			if next.GetTokenType() == parser.SnowflakeLexerNULL_ {
+				if tok.GetTokenType() == parser.SnowflakeLexerEQ {
+					tok.(*antlr.CommonToken).SetText("IS")
+				} else {
+					tok.(*antlr.CommonToken).SetText("IS NOT")
+				}
+				next.(*antlr.CommonToken).SetText("NULL")
+			}
+			break
+		}
+	}
 }
 
 func normalizeNotEqual(tokens antlr.TokenStream) {
