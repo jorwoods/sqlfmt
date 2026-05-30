@@ -15,27 +15,41 @@ A future-proof SQL formatter for Snowflake SQL, driven by ANTLR grammar.
 
 You can enable or disable individual formatting rules via `sqlfmt.yaml`:
 
-| Rule                | Config Key                         | Description                                                        |
-|---------------------|------------------------------------|--------------------------------------------------------------------|
-| Uppercase Keywords  | `uppercase_keywords`               | Uppercase all SQL keywords and function names                      |
-| Align Clauses       | `align_clauses`                    | Align major SQL clauses for readability                            |
-| Strip Quotes        | `strip_quotes`                     | Remove quotes from identifiers when safe                           |
-| Format SELECT List  | `format_select_list`               | Format long SELECT lists vertically and aligned                    |
-| Require Explicit AS | `require_explicit_as`              | Require all column and table aliases to use the AS keyword         |
-| Strip Trailing Whitespace | `strip_trailing_whitespace`  | Remove trailing spaces and tabs from each line of output           |
-| Normalize Not Equal | `normalize_not_equal`            | Rewrite `<>` to `!=`                                               |
-| Operator Spacing    | `operator_spacing`               | Ensure spaces around operators; `false` enables compact mode (`a=b`) |
-| Blank Lines Between Statements | `blank_lines_between_statements` | Insert a blank line between SQL statements    |
+| Rule                           | Config Key                         | Description                                                          |
+|--------------------------------|------------------------------------|----------------------------------------------------------------------|
+| Uppercase Keywords             | `uppercase_keywords`               | Uppercase all SQL keywords                                           |
+| Uppercase Functions            | `uppercase_functions`              | Uppercase all SQL built-in function names                            |
+| Align Clauses                  | `align_clauses`                    | Align major SQL clauses for readability                              |
+| Strip Quotes                   | `strip_quotes`                     | Remove quotes from identifiers when safe                             |
+| Format SELECT List             | `format_select_list`               | Format long SELECT lists vertically and aligned                      |
+| Require Explicit AS            | `require_explicit_as`              | Require all column and table aliases to use the AS keyword           |
+| Strip Trailing Whitespace      | `strip_trailing_whitespace`        | Remove trailing spaces and tabs from each line of output             |
+| Normalize Not Equal            | `normalize_not_equal`              | Rewrite `<>` to `!=`                                                 |
+| Normalize Boolean              | `normalize_boolean`                | Normalize boolean literals to a consistent case (e.g. `TRUE`/`FALSE`) |
+| Operator Spacing               | `operator_spacing`                 | Ensure spaces around operators; `false` enables compact mode (`a=b`) |
+| Blank Lines Between Statements | `blank_lines_between_statements`   | Insert a blank line between SQL statements                           |
+| Newline Before AND/OR          | `newline_before_and_or`            | Place AND/OR at the start of a new line in WHERE/HAVING clauses      |
+| Newline Before JOIN            | `newline_before_join`              | Place each JOIN clause on a new line                                 |
+| Newline Before ON              | `newline_before_on`                | Place the ON condition of a JOIN on a new line                       |
 
 Example `sqlfmt.yaml`:
 
 ```yaml
 rules:
   uppercase_keywords: true
+  uppercase_functions: true
   align_clauses: true
   strip_quotes: true
   format_select_list: true
   require_explicit_as: false
+  strip_trailing_whitespace: true
+  normalize_not_equal: true
+  normalize_boolean: true
+  operator_spacing: true
+  blank_lines_between_statements: true
+  newline_before_and_or: true
+  newline_before_join: true
+  newline_before_on: true
 ```
 
 ## Features
