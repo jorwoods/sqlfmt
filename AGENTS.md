@@ -52,6 +52,7 @@
 - **Grammar-driven**: No hand-maintained keyword lists; always use the grammar.
 - **Never change tests to match broken code**: Always fix the code to pass the tests, not the other way around.
 - **Token stream only:** All new formatting rules must operate directly on the token stream, not on an intermediate string representation. This ensures grammar-driven, robust, and future-proof formatting.
+- **Document new rules**: Any new rules must also be documented in README.md
 
 ## Self-correction
 
