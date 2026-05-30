@@ -146,6 +146,48 @@ var testCases = []formatTestCase{
 		       expected: "SELECT id, name\n  FROM users\n WHERE age > 30",
 		       rules: RulesConfig{UppercaseKeywords: true, AlignClauses: true, StripTrailingWhitespace: true, OperatorSpacing: true},
 	       },
+	       {
+		       name: "newline_before_and_or: AND in WHERE (flat path)",
+		       input: `select id from users where age > 30 and name = 'foo'`,
+		       expected: "SELECT id FROM users WHERE age > 30\n   AND name = 'foo'",
+		       rules: RulesConfig{UppercaseKeywords: true, NewlineBeforeAndOr: true, OperatorSpacing: true},
+	       },
+	       {
+		       name: "newline_before_and_or: OR in WHERE (flat path)",
+		       input: `select id from users where age > 30 or name = 'foo'`,
+		       expected: "SELECT id FROM users WHERE age > 30\n    OR name = 'foo'",
+		       rules: RulesConfig{UppercaseKeywords: true, NewlineBeforeAndOr: true, OperatorSpacing: true},
+	       },
+	       {
+		       name: "newline_before_and_or: multiple conditions (flat path)",
+		       input: `select id from users where a = 1 and b = 2 or c = 3`,
+		       expected: "SELECT id FROM users WHERE a = 1\n   AND b = 2\n    OR c = 3",
+		       rules: RulesConfig{UppercaseKeywords: true, NewlineBeforeAndOr: true, OperatorSpacing: true},
+	       },
+	       {
+		       name: "newline_before_and_or disabled leaves AND OR inline",
+		       input: `select id from users where age > 30 and name = 'foo'`,
+		       expected: "SELECT id FROM users WHERE age > 30 AND name = 'foo'",
+		       rules: RulesConfig{UppercaseKeywords: true, NewlineBeforeAndOr: false, OperatorSpacing: true},
+	       },
+	       {
+		       name: "newline_before_and_or with align_clauses",
+		       input: `select id from users where age > 30 and name = 'foo'`,
+		       expected: "SELECT id\n  FROM users\n WHERE age > 30\n   AND name = 'foo'",
+		       rules: RulesConfig{UppercaseKeywords: true, AlignClauses: true, NewlineBeforeAndOr: true, OperatorSpacing: true},
+	       },
+	       {
+		       name: "newline_before_and_or with align_clauses multiple conditions",
+		       input: `select id from users where a = 1 and b = 2 or c = 3`,
+		       expected: "SELECT id\n  FROM users\n WHERE a = 1\n   AND b = 2\n    OR c = 3",
+		       rules: RulesConfig{UppercaseKeywords: true, AlignClauses: true, NewlineBeforeAndOr: true, OperatorSpacing: true},
+	       },
+	       {
+		       name: "newline_before_and_or: AND not injected outside WHERE (SELECT clause)",
+		       input: `select id, case when a = 1 and b = 2 then 'y' else 'n' end from users where c = 3`,
+		       expected: "SELECT id, CASE WHEN a = 1 AND b = 2 THEN 'y' ELSE 'n' END FROM users WHERE c = 3",
+		       rules: RulesConfig{UppercaseKeywords: true, NewlineBeforeAndOr: true, OperatorSpacing: true},
+	       },
 }
 
 func TestStripTrailingWhitespace(t *testing.T) {

@@ -17,6 +17,7 @@ type RulesConfig struct {
 	NormalizeNotEqual             bool `yaml:"normalize_not_equal"`
 	OperatorSpacing               bool `yaml:"operator_spacing"`
 	BlankLinesBetweenStatements   bool `yaml:"blank_lines_between_statements"`
+	NewlineBeforeAndOr            bool `yaml:"newline_before_and_or"`
 }
 
 type Config struct {

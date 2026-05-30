@@ -25,6 +25,23 @@ var operatorTokenTypes = map[int]bool{
 	parser.SnowflakeLexerDIVIDE: true,
 }
 
+var wherelikeClauseTypes = map[int]bool{
+	parser.SnowflakeLexerWHERE:   true,
+	parser.SnowflakeLexerHAVING:  true,
+	parser.SnowflakeLexerQUALIFY: true,
+}
+
+var booleanOpTokens = map[int]bool{
+	parser.SnowflakeLexerAND: true,
+	parser.SnowflakeLexerOR:  true,
+}
+
+// booleanOpIndent right-aligns AND/OR to the same 6-char column as SELECT.
+var booleanOpIndent = map[int]string{
+	parser.SnowflakeLexerAND: "   ",  // 3 spaces + "AND" = 6 chars
+	parser.SnowflakeLexerOR:  "    ", // 4 spaces + "OR"  = 6 chars
+}
+
 func operatorSpacingEnabled(cfg *Config) bool {
 	if cfg == nil {
 		return true
@@ -44,11 +61,22 @@ var clauseTokenTypes = map[int]bool{
 }
 
 func isKeyword(token antlr.Token) bool {
-	// Use the token type from the generated lexer
 	if clauseTokenTypes[token.GetTokenType()] {
 		return true
 	}
-	return token.GetTokenType() == parser.SnowflakeLexerAS
+	ttype := token.GetTokenType()
+	switch ttype {
+	case parser.SnowflakeLexerAS,
+		parser.SnowflakeLexerAND,
+		parser.SnowflakeLexerOR,
+		parser.SnowflakeLexerCASE,
+		parser.SnowflakeLexerWHEN,
+		parser.SnowflakeLexerTHEN,
+		parser.SnowflakeLexerELSE,
+		parser.SnowflakeLexerEND:
+		return true
+	}
+	return false
 }
 
 func uppercaseKeywords(tokens antlr.TokenStream) {
@@ -78,11 +106,11 @@ func rightAlignClausesWithConfig(tokens antlr.TokenStream, cfg *Config) string {
 
 // alignClausesOnly aligns only the clauses, leaves select list formatting flat
 func alignClausesOnly(tokens antlr.TokenStream, cfg *Config) string {
-	// If only clause alignment is enabled, just align clauses, do not format select list or uppercase/strip unless those rules are also enabled (handled by token mutation before this call)
-	// Always use the mutated token stream for output, so uppercasing and quote stripping are reflected
 	var out []string
 	var line []string
 	var currentIndent string
+	currentClause := 0
+	newlineAndOr := cfg != nil && cfg.Rules.NewlineBeforeAndOr
 	clauseIndent := map[int]string{
 		parser.SnowflakeLexerSELECT:  "",
 		parser.SnowflakeLexerFROM:    "  ",
@@ -91,6 +119,16 @@ func alignClausesOnly(tokens antlr.TokenStream, cfg *Config) string {
 		parser.SnowflakeLexerHAVING:  " ",
 		parser.SnowflakeLexerORDER:   " ",
 		parser.SnowflakeLexerQUALIFY: " ",
+	}
+	flushLine := func() {
+		if len(line) > 0 {
+			joined := joinTokens(line, operatorSpacingEnabled(cfg))
+			if currentIndent != "" {
+				joined = currentIndent + joined
+			}
+			out = append(out, joined)
+			line = nil
+		}
 	}
 	for i := 0; i < tokens.Size(); i++ {
 		tok := tokens.Get(i)
@@ -103,29 +141,23 @@ func alignClausesOnly(tokens antlr.TokenStream, cfg *Config) string {
 			break
 		}
 		if clauseTokenTypes[ttype] {
-			if len(line) > 0 {
-				joined := joinTokens(line, operatorSpacingEnabled(cfg))
-				if currentIndent != "" {
-					joined = currentIndent + joined
-				}
-				out = append(out, joined)
-				line = nil
-			}
+			flushLine()
+			currentClause = ttype
 			currentIndent = clauseIndent[ttype]
 			line = []string{text}
 			continue
 		}
 		if ttype == parser.SnowflakeLexerSEMI {
-			if len(line) > 0 {
-				joined := joinTokens(line, operatorSpacingEnabled(cfg))
-				if currentIndent != "" {
-					joined = currentIndent + joined
-				}
-				out = append(out, joined)
-				line = nil
-			}
+			flushLine()
 			out = append(out, ";")
 			currentIndent = ""
+			currentClause = 0
+			continue
+		}
+		if newlineAndOr && booleanOpTokens[ttype] && wherelikeClauseTypes[currentClause] {
+			flushLine()
+			currentIndent = booleanOpIndent[ttype]
+			line = []string{text}
 			continue
 		}
 		if text == "," && len(line) > 0 {
@@ -134,13 +166,7 @@ func alignClausesOnly(tokens antlr.TokenStream, cfg *Config) string {
 		}
 		line = append(line, text)
 	}
-	if len(line) > 0 {
-		joined := joinTokens(line, operatorSpacingEnabled(cfg))
-		if currentIndent != "" {
-			joined = currentIndent + joined
-		}
-		out = append(out, joined)
-	}
+	flushLine()
 	return strings.Join(out, "\n")
 }
 
@@ -263,10 +289,11 @@ func formatSelectListOnly(tokens antlr.TokenStream, cfg *Config) string {
 
 // alignClausesAndSelectList applies both clause alignment and select list formatting
 func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
-	// Always use the mutated token stream for output, so uppercasing and quote stripping are reflected
 	var out []string
 	var line []string
 	var currentIndent string
+	currentClause := 0
+	newlineAndOr := cfg != nil && cfg.Rules.NewlineBeforeAndOr
 	clauseIndent := map[int]string{
 		parser.SnowflakeLexerSELECT:  "",
 		parser.SnowflakeLexerFROM:    "  ",
@@ -327,6 +354,7 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 			}
 			out = append(out, ";")
 			currentIndent = ""
+			currentClause = 0
 			continue
 		}
 		if clauseTokenTypes[ttype] {
@@ -365,6 +393,7 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 				   }
 				   line = nil
 			   }
+			   currentClause = ttype
 			   currentIndent = clauseIndent[ttype]
 			   line = []string{text}
 			   if ttype == parser.SnowflakeLexerSELECT {
@@ -372,6 +401,19 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 				   lastClauseText = text
 			   }
 			   continue
+		}
+		if newlineAndOr && booleanOpTokens[ttype] && wherelikeClauseTypes[currentClause] {
+			if len(line) > 0 {
+				joined := joinTokens(line, operatorSpacingEnabled(cfg))
+				if currentIndent != "" {
+					joined = currentIndent + joined
+				}
+				out = append(out, joined)
+				line = nil
+			}
+			currentIndent = booleanOpIndent[ttype]
+			line = []string{text}
+			continue
 		}
 		if inSelect {
 			if text == "," {
@@ -452,7 +494,10 @@ func rightAlignClauses(tokens antlr.TokenStream) string {
 	return rightAlignClausesWithConfig(tokens, nil)
 }
 
-func tokensToText(tokens antlr.TokenStream, operatorSpacing bool) string {
+func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
+	operatorSpacing := operatorSpacingEnabled(cfg)
+	newlineAndOr := cfg != nil && cfg.Rules.NewlineBeforeAndOr
+	currentClause := 0
 	var out strings.Builder
 	prev := ""
 	prevTtype := -1
@@ -463,8 +508,10 @@ func tokensToText(tokens antlr.TokenStream, operatorSpacing bool) string {
 		if strings.ToUpper(text) == "<EOF>" || text == "" {
 			continue
 		}
-		// Semicolons always go on their own line to avoid false positives in
-		// blankLinesBetweenStatements and to keep formatting consistent with trailing_semicolon.
+		if clauseTokenTypes[ttype] {
+			currentClause = ttype
+		}
+		// Semicolons always go on their own line.
 		if text == ";" {
 			if prev != "" {
 				out.WriteString("\n")
@@ -475,6 +522,17 @@ func tokensToText(tokens antlr.TokenStream, operatorSpacing bool) string {
 			}
 			prev = "\n"
 			prevTtype = ttype
+			currentClause = 0
+			continue
+		}
+		// AND/OR on their own line inside WHERE/HAVING/QUALIFY.
+		if newlineAndOr && booleanOpTokens[ttype] && wherelikeClauseTypes[currentClause] {
+			if prev != "" {
+				out.WriteString("\n")
+			}
+			out.WriteString(booleanOpIndent[ttype] + text)
+			prev = text
+			prevTtype = ttype
 			continue
 		}
 		if prev != "" {
@@ -483,7 +541,7 @@ func tokensToText(tokens antlr.TokenStream, operatorSpacing bool) string {
 			} else if prev == "(" || prev == "\n" {
 				// no space
 			} else if !operatorSpacing && (operatorTokenTypes[ttype] || operatorTokenTypes[prevTtype]) {
-				// compact mode: no space around operators
+				// compact mode
 			} else {
 				out.WriteString(" ")
 			}

@@ -14,7 +14,8 @@ func rulesAllDisabled(rules RulesConfig) bool {
 		!rules.TrailingSemicolon &&
 		!rules.StripTrailingWhitespace &&
 		!rules.NormalizeNotEqual &&
-		!rules.BlankLinesBetweenStatements
+		!rules.BlankLinesBetweenStatements &&
+		!rules.NewlineBeforeAndOr
 }
 
 func effectiveRules(cfg *Config) RulesConfig {
@@ -70,7 +71,7 @@ func render(stream antlr.TokenStream, rules RulesConfig) string {
 	if rules.FormatSelectList {
 		return formatSelectListOnly(stream, &Config{Rules: rules})
 	}
-	return tokensToText(stream, rules.OperatorSpacing)
+	return tokensToText(stream, &Config{Rules: rules})
 }
 
 // FormatSQLWithConfig formats SQL using the provided config.
