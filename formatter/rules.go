@@ -566,6 +566,21 @@ func normalizeNotEqual(tokens antlr.TokenStream) {
 	}
 }
 
+var booleanLiteralTypes = map[int]bool{
+	parser.SnowflakeLexerTRUE:  true,
+	parser.SnowflakeLexerFALSE: true,
+	parser.SnowflakeLexerNULL_: true,
+}
+
+func normalizeBooleans(tokens antlr.TokenStream) {
+	for i := 0; i < tokens.Size(); i++ {
+		tok := tokens.Get(i)
+		if booleanLiteralTypes[tok.GetTokenType()] {
+			tok.(*antlr.CommonToken).SetText(strings.ToUpper(tok.GetText()))
+		}
+	}
+}
+
 // blankLinesBetweenStatements inserts a blank line after lines that are exactly ";".
 // All renderers guarantee semicolons appear on their own line, so an exact match is safe
 // and avoids false positives from semicolons inside string literals.

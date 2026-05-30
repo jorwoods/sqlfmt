@@ -183,6 +183,18 @@ var testCases = []formatTestCase{
 		       rules: RulesConfig{UppercaseKeywords: true, AlignClauses: true, NewlineBeforeAndOr: true, OperatorSpacing: true},
 	       },
 	       {
+		       name: "normalize_boolean uppercases true/false/null",
+		       input: `select id from users where active = true and deleted = false and name != null`,
+		       expected: `select id from users where active = TRUE and deleted = FALSE and name != NULL`,
+		       rules: RulesConfig{NormalizeBoolean: true, OperatorSpacing: true},
+	       },
+	       {
+		       name: "normalize_boolean with uppercase_keywords",
+		       input: `select id from users where active = true`,
+		       expected: `SELECT id FROM users WHERE active = TRUE`,
+		       rules: RulesConfig{UppercaseKeywords: true, NormalizeBoolean: true, OperatorSpacing: true},
+	       },
+	       {
 		       name: "newline_before_and_or: AND not injected outside WHERE (SELECT clause)",
 		       input: `select id, case when a = 1 and b = 2 then 'y' else 'n' end from users where c = 3`,
 		       expected: "SELECT id, CASE WHEN a = 1 AND b = 2 THEN 'y' ELSE 'n' END FROM users WHERE c = 3",

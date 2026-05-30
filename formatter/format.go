@@ -15,7 +15,8 @@ func rulesAllDisabled(rules RulesConfig) bool {
 		!rules.StripTrailingWhitespace &&
 		!rules.NormalizeNotEqual &&
 		!rules.BlankLinesBetweenStatements &&
-		!rules.NewlineBeforeAndOr
+		!rules.NewlineBeforeAndOr &&
+		!rules.NormalizeBoolean
 }
 
 func effectiveRules(cfg *Config) RulesConfig {
@@ -58,6 +59,9 @@ func applyTokenRules(stream antlr.TokenStream, rules RulesConfig) {
 	}
 	if rules.NormalizeNotEqual {
 		normalizeNotEqual(stream)
+	}
+	if rules.NormalizeBoolean {
+		normalizeBooleans(stream)
 	}
 }
 
