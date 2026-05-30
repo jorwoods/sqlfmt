@@ -129,6 +129,8 @@ func alignClausesOnly(tokens antlr.TokenStream, cfg *Config) string {
 	var currentIndent string
 	currentClause := 0
 	newlineAndOr := cfg != nil && cfg.Rules.NewlineBeforeAndOr
+	newlineOn := cfg != nil && cfg.Rules.NewlineBeforeOn
+	inJoin := false
 	joinStarts := map[int]bool{}
 	if cfg != nil && cfg.Rules.NewlineBeforeJoin {
 		joinStarts = scanJoinStarts(tokens)
@@ -166,6 +168,7 @@ func alignClausesOnly(tokens antlr.TokenStream, cfg *Config) string {
 			flushLine()
 			currentClause = ttype
 			currentIndent = clauseIndent[ttype]
+			inJoin = false
 			line = []string{text}
 			continue
 		}
@@ -174,6 +177,7 @@ func alignClausesOnly(tokens antlr.TokenStream, cfg *Config) string {
 			out = append(out, ";")
 			currentIndent = ""
 			currentClause = 0
+			inJoin = false
 			continue
 		}
 		if newlineAndOr && booleanOpTokens[ttype] && wherelikeClauseTypes[currentClause] {
@@ -185,6 +189,13 @@ func alignClausesOnly(tokens antlr.TokenStream, cfg *Config) string {
 		if joinStarts[i] {
 			flushLine()
 			currentIndent = "  "
+			inJoin = true
+			line = []string{text}
+			continue
+		}
+		if newlineOn && inJoin && ttype == parser.SnowflakeLexerON {
+			flushLine()
+			currentIndent = "    "
 			line = []string{text}
 			continue
 		}
@@ -322,6 +333,8 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 	var currentIndent string
 	currentClause := 0
 	newlineAndOr := cfg != nil && cfg.Rules.NewlineBeforeAndOr
+	newlineOn := cfg != nil && cfg.Rules.NewlineBeforeOn
+	inJoin := false
 	joinStarts := map[int]bool{}
 	if cfg != nil && cfg.Rules.NewlineBeforeJoin {
 		joinStarts = scanJoinStarts(tokens)
@@ -387,6 +400,7 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 			out = append(out, ";")
 			currentIndent = ""
 			currentClause = 0
+			inJoin = false
 			continue
 		}
 		if clauseTokenTypes[ttype] {
@@ -427,6 +441,7 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 			   }
 			   currentClause = ttype
 			   currentIndent = clauseIndent[ttype]
+			   inJoin = false
 			   line = []string{text}
 			   if ttype == parser.SnowflakeLexerSELECT {
 				   inSelect = true
@@ -457,6 +472,20 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 				line = nil
 			}
 			currentIndent = "  "
+			inJoin = true
+			line = []string{text}
+			continue
+		}
+		if newlineOn && inJoin && ttype == parser.SnowflakeLexerON {
+			if len(line) > 0 {
+				joined := joinTokens(line, operatorSpacingEnabled(cfg))
+				if currentIndent != "" {
+					joined = currentIndent + joined
+				}
+				out = append(out, joined)
+				line = nil
+			}
+			currentIndent = "    "
 			line = []string{text}
 			continue
 		}
@@ -544,11 +573,13 @@ func rightAlignClauses(tokens antlr.TokenStream) string {
 func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 	operatorSpacing := operatorSpacingEnabled(cfg)
 	newlineAndOr := cfg != nil && cfg.Rules.NewlineBeforeAndOr
+	newlineOn := cfg != nil && cfg.Rules.NewlineBeforeOn
 	joinStarts := map[int]bool{}
 	if cfg != nil && cfg.Rules.NewlineBeforeJoin {
 		joinStarts = scanJoinStarts(tokens)
 	}
 	currentClause := 0
+	inJoin := false
 	var out strings.Builder
 	prev := ""
 	prevTtype := -1
@@ -561,6 +592,7 @@ func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 		}
 		if clauseTokenTypes[ttype] {
 			currentClause = ttype
+			inJoin = false
 		}
 		// Semicolons always go on their own line.
 		if text == ";" {
@@ -574,6 +606,7 @@ func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 			prev = "\n"
 			prevTtype = ttype
 			currentClause = 0
+			inJoin = false
 			continue
 		}
 		// JOIN clause on its own line.
@@ -582,6 +615,17 @@ func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 				out.WriteString("\n")
 			}
 			prev = "\n"
+			inJoin = true
+		}
+		// ON on its own line inside a JOIN clause.
+		if newlineOn && inJoin && ttype == parser.SnowflakeLexerON {
+			if prev != "" && prev != "\n" {
+				out.WriteString("\n")
+			}
+			out.WriteString("    " + text) // 4 spaces + "ON" = 6 chars, aligning with AND/OR/WHERE
+			prev = text
+			prevTtype = ttype
+			continue
 		}
 		// AND/OR on their own line inside WHERE/HAVING/QUALIFY.
 		if newlineAndOr && booleanOpTokens[ttype] && wherelikeClauseTypes[currentClause] {

@@ -21,6 +21,7 @@ type RulesConfig struct {
 	NormalizeBoolean              bool `yaml:"normalize_boolean"`
 	UppercaseFunctions            bool `yaml:"uppercase_functions"`
 	NewlineBeforeJoin             bool `yaml:"newline_before_join"`
+	NewlineBeforeOn               bool `yaml:"newline_before_on"`
 }
 
 type Config struct {

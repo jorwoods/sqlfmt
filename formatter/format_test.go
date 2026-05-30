@@ -225,6 +225,24 @@ var testCases = []formatTestCase{
 		       rules: RulesConfig{UppercaseKeywords: true, AlignClauses: true, NewlineBeforeJoin: true, OperatorSpacing: true},
 	       },
 	       {
+		       name: "newline_before_on puts ON on its own line (flat path)",
+		       input: `select id from users inner join orders on uid = oid`,
+		       expected: "SELECT id FROM users\nINNER JOIN orders\n    ON uid = oid",
+		       rules: RulesConfig{UppercaseKeywords: true, NewlineBeforeJoin: true, NewlineBeforeOn: true, OperatorSpacing: true},
+	       },
+	       {
+		       name: "newline_before_on with align_clauses",
+		       input: `select id from users inner join orders on uid = oid`,
+		       expected: "SELECT id\n  FROM users\n  INNER JOIN orders\n    ON uid = oid",
+		       rules: RulesConfig{UppercaseKeywords: true, AlignClauses: true, NewlineBeforeJoin: true, NewlineBeforeOn: true, OperatorSpacing: true},
+	       },
+	       {
+		       name: "newline_before_on multiple joins",
+		       input: `select id from a inner join b on a_id = b_id left join c on b_id = c_id`,
+		       expected: "SELECT id\n  FROM a\n  INNER JOIN b\n    ON a_id = b_id\n  LEFT JOIN c\n    ON b_id = c_id",
+		       rules: RulesConfig{UppercaseKeywords: true, AlignClauses: true, NewlineBeforeJoin: true, NewlineBeforeOn: true, OperatorSpacing: true},
+	       },
+	       {
 		       name: "normalize_boolean uppercases true/false/null",
 		       input: `select id from users where active = true and deleted = false and name != null`,
 		       expected: `select id from users where active = TRUE and deleted = FALSE and name != NULL`,
