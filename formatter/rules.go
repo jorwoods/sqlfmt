@@ -96,7 +96,10 @@ func isKeyword(token antlr.Token) bool {
 		parser.SnowflakeLexerNOT,
 		parser.SnowflakeLexerBY,
 		parser.SnowflakeLexerLIMIT,
-		parser.SnowflakeLexerOFFSET:
+		parser.SnowflakeLexerOFFSET,
+		parser.SnowflakeLexerASC,
+		parser.SnowflakeLexerDESC,
+		parser.SnowflakeLexerDISTINCT:
 		return true
 	}
 	return false

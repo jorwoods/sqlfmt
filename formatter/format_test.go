@@ -365,6 +365,12 @@ var testCases = []formatTestCase{
 		expected: "SELECT id\n  FROM users\n WHERE age > 30\n LIMIT 5",
 		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, NewlineBeforeLimit: true, OperatorSpacing: true},
 	},
+	{
+		name:     "uppercase_keywords: ASC and DESC are uppercased",
+		input:    `select id from users order by name desc, id asc`,
+		expected: "SELECT id FROM users ORDER BY name DESC, id ASC",
+		rules:    RulesConfig{UppercaseKeywords: true},
+	},
 	       {
 		       name: "newline_before_and_or: AND not injected outside WHERE (SELECT clause)",
 		       input: `select id, case when a = 1 and b = 2 then 'y' else 'n' end from users where c = 3`,
