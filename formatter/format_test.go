@@ -360,6 +360,12 @@ var testCases = []formatTestCase{
 		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, NewlineBeforeLimit: true, OperatorSpacing: true},
 	},
 	{
+		name:     "newline_before_limit: LIMIT with both align_clauses and format_select_list",
+		input:    `select id, name, age, email from users order by name limit 10 offset 5`,
+		expected: "SELECT id,\n       name,\n       age,\n       email\n  FROM users\n ORDER BY name\n LIMIT 10\n OFFSET 5",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, FormatSelectList: true, NewlineBeforeLimit: true, OperatorSpacing: true},
+	},
+	{
 		name:     "newline_before_limit: LIMIT only, no OFFSET",
 		input:    `select id from users where age > 30 limit 5`,
 		expected: "SELECT id\n  FROM users\n WHERE age > 30\n LIMIT 5",

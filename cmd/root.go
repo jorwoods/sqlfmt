@@ -20,7 +20,13 @@ var rootCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		result := formatter.FormatSQL(string(data))
+		cfg, err := formatter.LoadConfig()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+			os.Exit(1)
+		}
+
+		result := formatter.FormatSQLWithConfig(string(data), cfg)
 		fmt.Println(result)
 	},
 }
