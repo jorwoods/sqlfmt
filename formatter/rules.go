@@ -60,13 +60,24 @@ func operatorSpacingEnabled(cfg *Config) bool {
 
 // Clause keyword token types from the generated lexer
 var clauseTokenTypes = map[int]bool{
-	parser.SnowflakeLexerSELECT:  true,
-	parser.SnowflakeLexerFROM:    true,
-	parser.SnowflakeLexerWHERE:   true,
-	parser.SnowflakeLexerGROUP:   true,
-	parser.SnowflakeLexerHAVING:  true,
-	parser.SnowflakeLexerORDER:   true,
-	parser.SnowflakeLexerQUALIFY: true,
+	parser.SnowflakeLexerSELECT:    true,
+	parser.SnowflakeLexerFROM:      true,
+	parser.SnowflakeLexerWHERE:     true,
+	parser.SnowflakeLexerGROUP:     true,
+	parser.SnowflakeLexerHAVING:    true,
+	parser.SnowflakeLexerORDER:     true,
+	parser.SnowflakeLexerQUALIFY:   true,
+	parser.SnowflakeLexerUNION:     true,
+	parser.SnowflakeLexerINTERSECT: true,
+	parser.SnowflakeLexerEXCEPT:    true,
+}
+
+// setOperationTypes is the subset of clauseTokenTypes that are set operators.
+// Used to force a newline before them in the flat rendering path.
+var setOperationTypes = map[int]bool{
+	parser.SnowflakeLexerUNION:     true,
+	parser.SnowflakeLexerINTERSECT: true,
+	parser.SnowflakeLexerEXCEPT:    true,
 }
 
 func isKeyword(token antlr.Token) bool {
@@ -99,7 +110,11 @@ func isKeyword(token antlr.Token) bool {
 		parser.SnowflakeLexerOFFSET,
 		parser.SnowflakeLexerASC,
 		parser.SnowflakeLexerDESC,
-		parser.SnowflakeLexerDISTINCT:
+		parser.SnowflakeLexerDISTINCT,
+		parser.SnowflakeLexerUNION,
+		parser.SnowflakeLexerINTERSECT,
+		parser.SnowflakeLexerEXCEPT,
+		parser.SnowflakeLexerALL:
 		return true
 	}
 	return false
@@ -639,6 +654,13 @@ func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 			currentClause = 0
 			inJoin = false
 			continue
+		}
+		// Set operations (UNION / INTERSECT / EXCEPT) always start a new line.
+		if setOperationTypes[ttype] {
+			if prev != "" && prev != "\n" {
+				out.WriteString("\n")
+			}
+			prev = "\n"
 		}
 		// JOIN clause on its own line.
 		if joinStarts[i] {
