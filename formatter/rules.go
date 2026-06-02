@@ -114,7 +114,8 @@ func isKeyword(token antlr.Token) bool {
 		parser.SnowflakeLexerUNION,
 		parser.SnowflakeLexerINTERSECT,
 		parser.SnowflakeLexerEXCEPT,
-		parser.SnowflakeLexerALL:
+		parser.SnowflakeLexerALL,
+		parser.SnowflakeLexerWITH:
 		return true
 	}
 	return false
@@ -727,7 +728,7 @@ func isWordChar(b byte) bool {
 
 // spaceBeforeParenKeywords lists SQL keywords that precede ( but are not function calls.
 var spaceBeforeParenKeywords = func() map[string]bool {
-	words := []string{"over", "in", "from", "select", "not", "on", "join"}
+	words := []string{"over", "in", "from", "select", "not", "on", "join", "as"}
 	m := make(map[string]bool, len(words)*2)
 	for _, w := range words {
 		m[w] = true

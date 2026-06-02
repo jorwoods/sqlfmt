@@ -389,6 +389,12 @@ var testCases = []formatTestCase{
 		expected: "SELECT a\n  FROM x\nINTERSECT\nSELECT a\n  FROM y\nEXCEPT\nSELECT a\n  FROM z",
 		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true},
 	},
+	{
+		name:     "cte: WITH uppercased, AS followed by space before paren",
+		input:    `with cte as (select id from users) select * from cte`,
+		expected: "WITH cte AS (\nSELECT id\n  FROM users)\nSELECT *\n  FROM cte",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true},
+	},
 	       {
 		       name: "newline_before_and_or: AND not injected outside WHERE (SELECT clause)",
 		       input: `select id, case when a = 1 and b = 2 then 'y' else 'n' end from users where c = 3`,
