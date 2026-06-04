@@ -29,6 +29,7 @@ type RulesConfig struct {
 	NewlineBeforeLimit            bool `yaml:"newline_before_limit"`
 	NormalizeOrderDirection       bool `yaml:"normalize_order_direction"`
 	CTEFormatting                 bool `yaml:"cte_formatting"`
+	LeadingCommaCTE               bool `yaml:"leading_comma_cte"`
 }
 
 type Config struct {

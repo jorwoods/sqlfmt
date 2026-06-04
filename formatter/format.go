@@ -26,7 +26,8 @@ func rulesAllDisabled(rules RulesConfig) bool {
 		!rules.TrailingNewline &&
 		!rules.NewlineBeforeLimit &&
 		!rules.NormalizeOrderDirection &&
-		!rules.CTEFormatting
+		!rules.CTEFormatting &&
+		!rules.LeadingCommaCTE
 }
 
 func effectiveRules(cfg *Config) RulesConfig {
@@ -109,6 +110,9 @@ func FormatSQLWithConfig(input string, cfg *Config) string {
 	}
 	if rules.CTEFormatting {
 		result = formatCTEClosingParens(result)
+	}
+	if rules.LeadingCommaCTE {
+		result = applyLeadingCommasCTE(result)
 	}
 	if rules.IndentCaseWhen {
 		result = formatCaseExpressions(result)

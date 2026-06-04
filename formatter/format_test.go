@@ -422,14 +422,20 @@ var testCases = []formatTestCase{
 	{
 		name:     "cte_formatting: closing paren on its own line",
 		input:    `with cte as (select id from users where active = true) select * from cte`,
-		expected: "WITH cte AS (\nSELECT id\n  FROM users\n WHERE active = TRUE\n)\nSELECT *\n  FROM cte",
+		expected: "WITH cte AS (\n  SELECT id\n    FROM users\n   WHERE active = TRUE\n)\n\nSELECT *\n  FROM cte",
 		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, NormalizeBoolean: true, CTEFormatting: true, OperatorSpacing: true},
 	},
 	{
 		name:     "cte_formatting: multiple CTEs",
 		input:    `with a as (select id from t), b as (select id from s) select * from a join b on a.id = b.id`,
-		expected: "WITH a AS (\nSELECT id\n  FROM t\n), b AS (\nSELECT id\n  FROM s\n)\nSELECT *\n  FROM a\n  JOIN b\n    ON a . id = b . id",
+		expected: "WITH a AS (\n  SELECT id\n    FROM t\n)\n\n, b AS (\n  SELECT id\n    FROM s\n)\n\nSELECT *\n  FROM a\n  JOIN b\n    ON a . id = b . id",
 		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, CTEFormatting: true, NewlineBeforeJoin: true, NewlineBeforeOn: true, OperatorSpacing: true},
+	},
+	{
+		name:     "leading_comma_cte: comma moves to start of next CTE line",
+		input:    `with a as (select id from t), b as (select name from s) select * from a, b`,
+		expected: "WITH a AS (\n  SELECT id\n    FROM t\n)\n\n, b AS (\n  SELECT name\n    FROM s\n)\n\nSELECT *\n  FROM a, b",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, CTEFormatting: true, LeadingCommaCTE: true, OperatorSpacing: true},
 	},
 	       {
 		       name: "newline_before_and_or: AND not injected outside WHERE (SELECT clause)",

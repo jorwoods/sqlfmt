@@ -1118,13 +1118,15 @@ func ensureExplicitOrderDirection(item string) string {
 	return item + " ASC"
 }
 
-// formatCTEClosingParens ensures the closing ) of each CTE subquery sits on its
-// own line. It detects CTE subqueries by the pattern <word> AS (, tracks paren
-// depth, and emits a newline before the ) that brings depth back to zero.
+// formatCTEClosingParens ensures each CTE subquery's closing ) sits on its own
+// line, indents the body 4 spaces, and adds a blank line after each CTE closer.
+// It detects CTE subqueries by the pattern <word> AS (, tracks paren depth, and
+// emits a newline+indent before the ) that brings depth back to zero.
 func formatCTEClosingParens(sql string) string {
+	const cteIndent = "  "
 	var out strings.Builder
 	pending := ""
-	seenAS := false  // true immediately after the AS keyword
+	seenAS := false
 	inCTE := false
 	cteDepth := 0
 
@@ -1145,7 +1147,22 @@ func formatCTEClosingParens(sql string) string {
 			for j < len(sql) && (sql[j] == ' ' || sql[j] == '\t' || sql[j] == '\n' || sql[j] == '\r') {
 				j++
 			}
-			pending += sql[i:j]
+			ws := sql[i:j]
+			if inCTE && strings.Contains(ws, "\n") {
+				// Inject cteIndent after each newline so CTE body lines are indented.
+				var sb strings.Builder
+				parts := strings.Split(ws, "\n")
+				for k, part := range parts {
+					if k > 0 {
+						sb.WriteByte('\n')
+						sb.WriteString(cteIndent)
+					}
+					sb.WriteString(part)
+				}
+				pending += sb.String()
+			} else {
+				pending += ws
+			}
 			i = j
 			continue
 		}
@@ -1208,10 +1225,15 @@ func formatCTEClosingParens(sql string) string {
 				cteDepth--
 				if cteDepth == 0 {
 					pending = "" // discard trailing whitespace before closer
-					out.WriteString("\n)")
+					out.WriteString("\n)\n\n")
 					inCTE = false
 					seenAS = false
 					i++
+					// Skip any whitespace immediately following the CTE closer so
+					// we don't double-emit the newline that was already there.
+					for i < len(sql) && (sql[i] == ' ' || sql[i] == '\t' || sql[i] == '\n' || sql[i] == '\r') {
+						i++
+					}
 					continue
 				}
 			}
@@ -1244,6 +1266,23 @@ func formatCTEClosingParens(sql string) string {
 	}
 	flushPending()
 	return out.String()
+}
+
+// applyLeadingCommasCTE moves the comma that separates CTE definitions to the
+// start of the next line. It only fires on lines produced by formatCTEClosingParens
+// that begin with ")," — the CTE closing paren immediately followed by the separator.
+func applyLeadingCommasCTE(sql string) string {
+	lines := strings.Split(sql, "\n")
+	var out []string
+	for _, line := range lines {
+		if strings.HasPrefix(line, "),") {
+			out = append(out, ")")
+			out = append(out, ","+line[2:])
+		} else {
+			out = append(out, line)
+		}
+	}
+	return strings.Join(out, "\n")
 }
 
 // applyLeadingCommas moves trailing commas to the start of the following line.
