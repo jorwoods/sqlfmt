@@ -24,7 +24,9 @@ func rulesAllDisabled(rules RulesConfig) bool {
 		!rules.LeadingComma &&
 		!rules.NormalizeNullComparison &&
 		!rules.TrailingNewline &&
-		!rules.NewlineBeforeLimit
+		!rules.NewlineBeforeLimit &&
+		!rules.NormalizeOrderDirection &&
+		!rules.CTEFormatting
 }
 
 func effectiveRules(cfg *Config) RulesConfig {
@@ -102,6 +104,12 @@ func FormatSQLWithConfig(input string, cfg *Config) string {
 	stream := lexAndParse(input)
 	applyTokenRules(stream, rules)
 	result := render(stream, rules)
+	if rules.NormalizeOrderDirection {
+		result = normalizeOrderDirectionExplicit(result)
+	}
+	if rules.CTEFormatting {
+		result = formatCTEClosingParens(result)
+	}
 	if rules.IndentCaseWhen {
 		result = formatCaseExpressions(result)
 	}

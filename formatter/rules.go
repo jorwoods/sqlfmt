@@ -594,8 +594,8 @@ func joinTokens(tokens []string, operatorSpacing bool) string {
 	prev := ""
 	for _, text := range tokens {
 		if prev != "" {
-			if text == "," || text == ")" || text == ";" {
-				// no space
+			if text == "," || text == ";" || strings.HasPrefix(text, ")") {
+				// no space before ) or ),  or );
 			} else if prev == "(" {
 				// no space
 			} else if text == "(" && isFunctionCallParen(prev) {
@@ -1018,6 +1018,232 @@ func hasMoreNonEOFTokens(tokens antlr.TokenStream, from int) bool {
 		}
 	}
 	return false
+}
+
+// normalizeOrderDirectionExplicit adds explicit ASC to every ORDER BY item that has
+// no direction keyword. Works on both aligned (ORDER BY on its own line) and flat
+// (inline) output. Must run before formatCaseExpressions.
+func normalizeOrderDirectionExplicit(sql string) string {
+	lines := strings.Split(sql, "\n")
+	for i, line := range lines {
+		upper := strings.ToUpper(line)
+		obIdx := strings.Index(upper, "ORDER BY ")
+		if obIdx < 0 {
+			continue
+		}
+		prefix := line[:obIdx+len("ORDER BY ")]
+		rest := line[obIdx+len("ORDER BY "):]
+		// Locate any inline terminator (LIMIT/OFFSET) so we don't consume it.
+		itemStr, suffix := splitOrderBySuffix(rest)
+		items := splitAtTopLevelCommas(itemStr)
+		for j, item := range items {
+			items[j] = ensureExplicitOrderDirection(item)
+		}
+		lines[i] = prefix + strings.Join(items, ", ") + suffix
+	}
+	return strings.Join(lines, "\n")
+}
+
+// splitOrderBySuffix splits an ORDER BY remainder into the item list and any
+// trailing clause/LIMIT/OFFSET that follows (e.g. " LIMIT 10").
+func splitOrderBySuffix(s string) (items, suffix string) {
+	upper := strings.ToUpper(s)
+	for _, kw := range []string{" LIMIT ", " LIMIT\t", " OFFSET ", " OFFSET\t"} {
+		if idx := strings.Index(upper, kw); idx >= 0 {
+			return strings.TrimRight(s[:idx], " \t"), s[idx:]
+		}
+	}
+	for _, kw := range []string{" LIMIT", " OFFSET"} {
+		if strings.HasSuffix(upper, kw) {
+			idx := len(s) - len(kw)
+			return strings.TrimRight(s[:idx], " \t"), s[idx:]
+		}
+	}
+	return s, ""
+}
+
+// splitAtTopLevelCommas splits s by commas that are not inside parentheses or
+// string literals.
+func splitAtTopLevelCommas(s string) []string {
+	var items []string
+	depth := 0
+	inStr := false
+	start := 0
+	for i := 0; i < len(s); i++ {
+		ch := s[i]
+		if inStr {
+			if ch == '\'' {
+				if i+1 < len(s) && s[i+1] == '\'' {
+					i++ // escaped ''
+				} else {
+					inStr = false
+				}
+			}
+			continue
+		}
+		switch ch {
+		case '\'':
+			inStr = true
+		case '(':
+			depth++
+		case ')':
+			depth--
+		case ',':
+			if depth == 0 {
+				items = append(items, strings.TrimSpace(s[start:i]))
+				start = i + 1
+			}
+		}
+	}
+	items = append(items, strings.TrimSpace(s[start:]))
+	return items
+}
+
+// ensureExplicitOrderDirection appends ASC to an ORDER BY item if it has no
+// explicit direction. Items already ending in ASC, DESC, FIRST, or LAST are
+// returned unchanged (FIRST/LAST covers NULLS FIRST / NULLS LAST).
+func ensureExplicitOrderDirection(item string) string {
+	trimmed := strings.TrimSpace(item)
+	lastSpace := strings.LastIndex(trimmed, " ")
+	var lastWord string
+	if lastSpace >= 0 {
+		lastWord = trimmed[lastSpace+1:]
+	} else {
+		lastWord = trimmed
+	}
+	switch strings.ToUpper(lastWord) {
+	case "ASC", "DESC", "FIRST", "LAST":
+		return item
+	}
+	return item + " ASC"
+}
+
+// formatCTEClosingParens ensures the closing ) of each CTE subquery sits on its
+// own line. It detects CTE subqueries by the pattern <word> AS (, tracks paren
+// depth, and emits a newline before the ) that brings depth back to zero.
+func formatCTEClosingParens(sql string) string {
+	var out strings.Builder
+	pending := ""
+	seenAS := false  // true immediately after the AS keyword
+	inCTE := false
+	cteDepth := 0
+
+	flushPending := func() {
+		if pending != "" {
+			out.WriteString(pending)
+			pending = ""
+		}
+	}
+
+	i := 0
+	for i < len(sql) {
+		ch := sql[i]
+
+		// Whitespace — buffer it so we can discard before a `)` closer.
+		if ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' {
+			j := i
+			for j < len(sql) && (sql[j] == ' ' || sql[j] == '\t' || sql[j] == '\n' || sql[j] == '\r') {
+				j++
+			}
+			pending += sql[i:j]
+			i = j
+			continue
+		}
+
+		// Single-quoted string literal — copy verbatim.
+		if ch == '\'' {
+			flushPending()
+			seenAS = false
+			j := i + 1
+			for j < len(sql) {
+				if sql[j] == '\'' {
+					j++
+					if j < len(sql) && sql[j] == '\'' {
+						j++
+						continue
+					}
+					break
+				}
+				j++
+			}
+			out.WriteString(sql[i:j])
+			i = j
+			continue
+		}
+
+		// Double-quoted identifier — copy verbatim.
+		if ch == '"' {
+			flushPending()
+			seenAS = false
+			j := i + 1
+			for j < len(sql) && sql[j] != '"' {
+				j++
+			}
+			if j < len(sql) {
+				j++
+			}
+			out.WriteString(sql[i:j])
+			i = j
+			continue
+		}
+
+		// Opening paren.
+		if ch == '(' {
+			if seenAS && !inCTE {
+				inCTE = true
+				cteDepth = 1
+			} else if inCTE {
+				cteDepth++
+			}
+			seenAS = false
+			flushPending()
+			out.WriteByte('(')
+			i++
+			continue
+		}
+
+		// Closing paren.
+		if ch == ')' {
+			if inCTE {
+				cteDepth--
+				if cteDepth == 0 {
+					pending = "" // discard trailing whitespace before closer
+					out.WriteString("\n)")
+					inCTE = false
+					seenAS = false
+					i++
+					continue
+				}
+			}
+			seenAS = false
+			flushPending()
+			out.WriteByte(')')
+			i++
+			continue
+		}
+
+		// Word token.
+		if isWordChar(ch) {
+			j := i
+			for j < len(sql) && isWordChar(sql[j]) {
+				j++
+			}
+			word := sql[i:j]
+			seenAS = strings.ToUpper(word) == "AS"
+			flushPending()
+			out.WriteString(word)
+			i = j
+			continue
+		}
+
+		// Everything else.
+		seenAS = false
+		flushPending()
+		out.WriteByte(ch)
+		i++
+	}
+	flushPending()
+	return out.String()
 }
 
 // applyLeadingCommas moves trailing commas to the start of the following line.

@@ -395,6 +395,42 @@ var testCases = []formatTestCase{
 		expected: "WITH cte AS (\nSELECT id\n  FROM users)\nSELECT *\n  FROM cte",
 		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true},
 	},
+	{
+		name:     "normalize_order_direction: adds ASC to items without direction",
+		input:    `select id from t order by name, created_at desc, id`,
+		expected: "SELECT id\n  FROM t\n ORDER BY name ASC, created_at DESC, id ASC",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, NormalizeOrderDirection: true},
+	},
+	{
+		name:     "normalize_order_direction: function call items get ASC",
+		input:    `select id from t order by upper(name), id desc`,
+		expected: "SELECT id\n  FROM t\n ORDER BY upper(name) ASC, id DESC",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, NormalizeOrderDirection: true},
+	},
+	{
+		name:     "normalize_order_direction: already explicit stays unchanged",
+		input:    `select id from t order by name asc, id desc`,
+		expected: "SELECT id\n  FROM t\n ORDER BY name ASC, id DESC",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, NormalizeOrderDirection: true},
+	},
+	{
+		name:     "normalize_order_direction: with LIMIT suffix preserved",
+		input:    `select id from t order by name limit 5`,
+		expected: "SELECT id\n  FROM t\n ORDER BY name ASC\n LIMIT 5",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, NormalizeOrderDirection: true, NewlineBeforeLimit: true},
+	},
+	{
+		name:     "cte_formatting: closing paren on its own line",
+		input:    `with cte as (select id from users where active = true) select * from cte`,
+		expected: "WITH cte AS (\nSELECT id\n  FROM users\n WHERE active = TRUE\n)\nSELECT *\n  FROM cte",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, NormalizeBoolean: true, CTEFormatting: true, OperatorSpacing: true},
+	},
+	{
+		name:     "cte_formatting: multiple CTEs",
+		input:    `with a as (select id from t), b as (select id from s) select * from a join b on a.id = b.id`,
+		expected: "WITH a AS (\nSELECT id\n  FROM t\n), b AS (\nSELECT id\n  FROM s\n)\nSELECT *\n  FROM a\n  JOIN b\n    ON a . id = b . id",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, CTEFormatting: true, NewlineBeforeJoin: true, NewlineBeforeOn: true, OperatorSpacing: true},
+	},
 	       {
 		       name: "newline_before_and_or: AND not injected outside WHERE (SELECT clause)",
 		       input: `select id, case when a = 1 and b = 2 then 'y' else 'n' end from users where c = 3`,

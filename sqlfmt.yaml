@@ -14,3 +14,5 @@ rules:
   normalize_null_comparison: true
   trailing_newline: true
   newline_before_limit: true
+  normalize_order_direction: true
+  cte_formatting: true

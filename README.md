@@ -36,6 +36,8 @@ You can enable or disable individual formatting rules via `sqlfmt.yaml`:
 | Normalize NULL Comparison      | `normalize_null_comparison`        | Rewrite `= NULL` to `IS NULL` and `!= NULL` / `<> NULL` to `IS NOT NULL`            |
 | Trailing Newline               | `trailing_newline`                 | Ensure the output ends with exactly one newline character                            |
 | Newline Before LIMIT/OFFSET    | `newline_before_limit`             | Place LIMIT and OFFSET each on their own line                                        |
+| Normalize Order Direction      | `normalize_order_direction`        | Add explicit `ASC` to every ORDER BY item that has no direction keyword (requires `align_clauses`) |
+| CTE Formatting                 | `cte_formatting`                   | Place the closing `)` of each CTE subquery on its own line                           |
 
 Example `sqlfmt.yaml`:
 
@@ -60,6 +62,8 @@ rules:
   normalize_null_comparison: true
   trailing_newline: true
   newline_before_limit: true
+  normalize_order_direction: true
+  cte_formatting: true
 ```
 
 ## Features

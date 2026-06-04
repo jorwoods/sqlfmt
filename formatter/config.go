@@ -27,6 +27,8 @@ type RulesConfig struct {
 	NormalizeNullComparison       bool `yaml:"normalize_null_comparison"`
 	TrailingNewline               bool `yaml:"trailing_newline"`
 	NewlineBeforeLimit            bool `yaml:"newline_before_limit"`
+	NormalizeOrderDirection       bool `yaml:"normalize_order_direction"`
+	CTEFormatting                 bool `yaml:"cte_formatting"`
 }
 
 type Config struct {
