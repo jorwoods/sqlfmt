@@ -1,5 +1,12 @@
 export GOTOOLCHAIN=local
 
+OS   ?= linux
+ARCH ?= amd64
+BIN  := sqlfmt$(if $(filter windows,$(OS)),.exe,)
+
+build:
+	GOOS=$(OS) GOARCH=$(ARCH) go build -o dist/$(OS)_$(ARCH)/$(BIN) .
+
 generate:
 	go generate ./parser
 

@@ -8,3 +8,4 @@ parser/snowflakeparser_listener.go
 tools/
 sqlfmt
 
+dist/
