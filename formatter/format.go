@@ -30,7 +30,10 @@ func rulesAllDisabled(rules RulesConfig) bool {
 		!rules.LeadingCommaCTE &&
 		!rules.RemoveRedundantParens &&
 		!rules.NewlineBeforeSetOp &&
-		!rules.IndentSubquery
+		!rules.IndentSubquery &&
+		!rules.NewlineBeforeGroupBy &&
+		!rules.NewlineBeforeOrderBy &&
+		!rules.NewlineBeforeHaving
 }
 
 func effectiveRules(cfg *Config) RulesConfig {

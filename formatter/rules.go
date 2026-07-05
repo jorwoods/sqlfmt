@@ -632,6 +632,9 @@ func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 	newlineOn := cfg != nil && cfg.Rules.NewlineBeforeOn
 	newlineLimit := cfg != nil && cfg.Rules.NewlineBeforeLimit
 	newlineSetOp := cfg != nil && cfg.Rules.NewlineBeforeSetOp
+	newlineGroupBy := cfg != nil && cfg.Rules.NewlineBeforeGroupBy
+	newlineOrderBy := cfg != nil && cfg.Rules.NewlineBeforeOrderBy
+	newlineHaving := cfg != nil && cfg.Rules.NewlineBeforeHaving
 	joinStarts := map[int]bool{}
 	if cfg != nil && cfg.Rules.NewlineBeforeJoin {
 		joinStarts = scanJoinStarts(tokens)
@@ -695,6 +698,25 @@ func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 		}
 		// LIMIT / OFFSET on their own line.
 		if newlineLimit && (ttype == parser.SnowflakeLexerLIMIT || ttype == parser.SnowflakeLexerOFFSET) {
+			if prev != "" && prev != "\n" {
+				out.WriteString("\n")
+			}
+			prev = "\n"
+		}
+		// GROUP BY, ORDER BY, HAVING on their own lines when respective rules are enabled.
+		if newlineGroupBy && ttype == parser.SnowflakeLexerGROUP {
+			if prev != "" && prev != "\n" {
+				out.WriteString("\n")
+			}
+			prev = "\n"
+		}
+		if newlineOrderBy && ttype == parser.SnowflakeLexerORDER {
+			if prev != "" && prev != "\n" {
+				out.WriteString("\n")
+			}
+			prev = "\n"
+		}
+		if newlineHaving && ttype == parser.SnowflakeLexerHAVING {
 			if prev != "" && prev != "\n" {
 				out.WriteString("\n")
 			}

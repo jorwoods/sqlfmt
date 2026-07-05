@@ -516,6 +516,30 @@ var testCases = []formatTestCase{
 		rules:    RulesConfig{UppercaseKeywords: true, IndentSubquery: true},
 	},
 	{
+		name:     "newline_before_group_by: places GROUP BY on its own line",
+		input:    `select id, count(*) from users group by id`,
+		expected: "SELECT id, count(*) FROM users\nGROUP BY id",
+		rules:    RulesConfig{UppercaseKeywords: true, NewlineBeforeGroupBy: true},
+	},
+	{
+		name:     "newline_before_group_by: no extra newline when already on new line",
+		input:    "select id from t\ngroup by id",
+		expected: "SELECT id FROM t\nGROUP BY id",
+		rules:    RulesConfig{UppercaseKeywords: true, NewlineBeforeGroupBy: true},
+	},
+	{
+		name:     "newline_before_order_by: places ORDER BY on its own line",
+		input:    `select id from users order by id`,
+		expected: "SELECT id FROM users\nORDER BY id",
+		rules:    RulesConfig{UppercaseKeywords: true, NewlineBeforeOrderBy: true},
+	},
+	{
+		name:     "newline_before_having: places HAVING on its own line",
+		input:    `select id, count(*) from users group by id having count(*) > 1`,
+		expected: "SELECT id, count(*) FROM users GROUP BY id\nHAVING count(*) > 1",
+		rules:    RulesConfig{UppercaseKeywords: true, NewlineBeforeHaving: true, OperatorSpacing: true},
+	},
+	{
 		name:     "remove_redundant_parens: preserves precedence-changing parens",
 		input:    `select id from users where (a = 1 or b = 2) and c = 3`,
 		expected: "SELECT id FROM users WHERE (a = 1 OR b = 2) AND c = 3",

@@ -33,6 +33,9 @@ type RulesConfig struct {
 	RemoveRedundantParens         bool `yaml:"remove_redundant_parens"`
 	NewlineBeforeSetOp            bool `yaml:"newline_before_set_op"`
 	IndentSubquery                bool `yaml:"indent_subquery"`
+	NewlineBeforeGroupBy          bool `yaml:"newline_before_group_by"`
+	NewlineBeforeOrderBy          bool `yaml:"newline_before_order_by"`
+	NewlineBeforeHaving           bool `yaml:"newline_before_having"`
 }
 
 type Config struct {

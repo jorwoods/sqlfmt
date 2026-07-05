@@ -42,6 +42,9 @@ You can enable or disable individual formatting rules via `sqlfmt.yaml`:
 | Remove Redundant Parentheses   | `remove_redundant_parens`          | Remove unnecessary parentheses around simple expressions in WHERE, AND, OR, ON, and HAVING clauses |
 | Newline Before Set Operation   | `newline_before_set_op`            | Place UNION, INTERSECT, and EXCEPT each on their own line                                          |
 | Indent Subquery                | `indent_subquery`                  | Format inline subqueries to multi-line with 2-space indentation per nesting level                  |
+| Newline Before GROUP BY        | `newline_before_group_by`          | Place GROUP BY on its own line                                                                     |
+| Newline Before ORDER BY        | `newline_before_order_by`          | Place ORDER BY on its own line                                                                     |
+| Newline Before HAVING          | `newline_before_having`            | Place HAVING on its own line                                                                       |
 
 Example `sqlfmt.yaml`:
 
@@ -72,6 +75,9 @@ rules:
   remove_redundant_parens: false
   newline_before_set_op: false
   indent_subquery: false
+  newline_before_group_by: false
+  newline_before_order_by: false
+  newline_before_having: false
 ```
 
 ## Features
