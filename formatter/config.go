@@ -11,7 +11,31 @@ type RulesConfig struct {
 	AlignClauses                  bool `yaml:"align_clauses"`
 	StripQuotes                   bool `yaml:"strip_quotes"`
 	FormatSelectList              bool `yaml:"format_select_list"`
-	RefactorLongSubqueriesToCTE   bool `yaml:"refactor_long_subqueries_to_cte"`
+	RequireExplicitAS             bool `yaml:"require_explicit_as"`
+	TrailingSemicolon             bool `yaml:"trailing_semicolon"`
+	StripTrailingWhitespace       bool `yaml:"strip_trailing_whitespace"`
+	NormalizeNotEqual             bool `yaml:"normalize_not_equal"`
+	OperatorSpacing               bool `yaml:"operator_spacing"`
+	BlankLinesBetweenStatements   bool `yaml:"blank_lines_between_statements"`
+	NewlineBeforeAndOr            bool `yaml:"newline_before_and_or"`
+	NormalizeBoolean              bool `yaml:"normalize_boolean"`
+	UppercaseFunctions            bool `yaml:"uppercase_functions"`
+	NewlineBeforeJoin             bool `yaml:"newline_before_join"`
+	NewlineBeforeOn               bool `yaml:"newline_before_on"`
+	IndentCaseWhen                bool `yaml:"indent_case_when"`
+	LeadingComma                  bool `yaml:"leading_comma"`
+	NormalizeNullComparison       bool `yaml:"normalize_null_comparison"`
+	TrailingNewline               bool `yaml:"trailing_newline"`
+	NewlineBeforeLimit            bool `yaml:"newline_before_limit"`
+	NormalizeOrderDirection       bool `yaml:"normalize_order_direction"`
+	CTEFormatting                 bool `yaml:"cte_formatting"`
+	LeadingCommaCTE               bool `yaml:"leading_comma_cte"`
+	RemoveRedundantParens         bool `yaml:"remove_redundant_parens"`
+	NewlineBeforeSetOp            bool `yaml:"newline_before_set_op"`
+	IndentSubquery                bool `yaml:"indent_subquery"`
+	NewlineBeforeGroupBy          bool `yaml:"newline_before_group_by"`
+	NewlineBeforeOrderBy          bool `yaml:"newline_before_order_by"`
+	NewlineBeforeHaving           bool `yaml:"newline_before_having"`
 }
 
 type Config struct {

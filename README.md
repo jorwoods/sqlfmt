@@ -15,23 +15,69 @@ A future-proof SQL formatter for Snowflake SQL, driven by ANTLR grammar.
 
 You can enable or disable individual formatting rules via `sqlfmt.yaml`:
 
-| Rule                | Config Key                         | Description                                                        |
-|---------------------|------------------------------------|--------------------------------------------------------------------|
-| Uppercase Keywords  | `uppercase_keywords`               | Uppercase all SQL keywords and function names                      |
-| Align Clauses       | `align_clauses`                    | Align major SQL clauses for readability                            |
-| Strip Quotes        | `strip_quotes`                     | Remove quotes from identifiers when safe                           |
-| Format SELECT List  | `format_select_list`               | Format long SELECT lists vertically and aligned                    |
-| Refactor Subqueries to CTE | `refactor_long_subqueries_to_cte` | Refactor long/non-correlated subqueries into CTEs (experimental)   |
+| Rule                           | Config Key                         | Description                                                          |
+|--------------------------------|------------------------------------|----------------------------------------------------------------------|
+| Uppercase Keywords             | `uppercase_keywords`               | Uppercase all SQL keywords                                           |
+| Uppercase Functions            | `uppercase_functions`              | Uppercase all SQL built-in function names                            |
+| Align Clauses                  | `align_clauses`                    | Align major SQL clauses for readability                              |
+| Strip Quotes                   | `strip_quotes`                     | Remove quotes from identifiers when safe                             |
+| Format SELECT List             | `format_select_list`               | Format long SELECT lists vertically and aligned                      |
+| Require Explicit AS            | `require_explicit_as`              | Require all column and table aliases to use the AS keyword           |
+| Strip Trailing Whitespace      | `strip_trailing_whitespace`        | Remove trailing spaces and tabs from each line of output             |
+| Normalize Not Equal            | `normalize_not_equal`              | Rewrite `<>` to `!=`                                                 |
+| Normalize Boolean              | `normalize_boolean`                | Normalize boolean literals to a consistent case (e.g. `TRUE`/`FALSE`) |
+| Operator Spacing               | `operator_spacing`                 | Ensure spaces around operators; `false` enables compact mode (`a=b`) |
+| Blank Lines Between Statements | `blank_lines_between_statements`   | Insert a blank line between SQL statements                           |
+| Newline Before AND/OR          | `newline_before_and_or`            | Place AND/OR at the start of a new line in WHERE/HAVING clauses      |
+| Newline Before JOIN            | `newline_before_join`              | Place each JOIN clause on a new line                                 |
+| Newline Before ON              | `newline_before_on`                | Place the ON condition of a JOIN on a new line                       |
+| Indent CASE WHEN               | `indent_case_when`                 | Place WHEN, ELSE, and END each on their own indented line in CASE expressions |
+| Leading Comma                  | `leading_comma`                    | Place commas at the start of each item line rather than the end of the previous line |
+| Normalize NULL Comparison      | `normalize_null_comparison`        | Rewrite `= NULL` to `IS NULL` and `!= NULL` / `<> NULL` to `IS NOT NULL`            |
+| Trailing Newline               | `trailing_newline`                 | Ensure the output ends with exactly one newline character                            |
+| Newline Before LIMIT/OFFSET    | `newline_before_limit`             | Place LIMIT and OFFSET each on their own line                                        |
+| Normalize Order Direction      | `normalize_order_direction`        | Add explicit `ASC` to every ORDER BY item that has no direction keyword (requires `align_clauses`) |
+| CTE Formatting                 | `cte_formatting`                   | Indent CTE body 2 spaces, place closing `)` on its own line, and add a blank line between CTEs |
+| Leading Comma CTE              | `leading_comma_cte`                | Move the CTE separator comma to the start of the next CTE's line (no-op when `cte_formatting` is enabled) |
+| Remove Redundant Parentheses   | `remove_redundant_parens`          | Remove unnecessary parentheses around simple expressions in WHERE, AND, OR, ON, and HAVING clauses |
+| Newline Before Set Operation   | `newline_before_set_op`            | Place UNION, INTERSECT, and EXCEPT each on their own line                                          |
+| Indent Subquery                | `indent_subquery`                  | Format inline subqueries to multi-line with 2-space indentation per nesting level                  |
+| Newline Before GROUP BY        | `newline_before_group_by`          | Place GROUP BY on its own line                                                                     |
+| Newline Before ORDER BY        | `newline_before_order_by`          | Place ORDER BY on its own line                                                                     |
+| Newline Before HAVING          | `newline_before_having`            | Place HAVING on its own line                                                                       |
 
 Example `sqlfmt.yaml`:
 
 ```yaml
 rules:
   uppercase_keywords: true
+  uppercase_functions: true
   align_clauses: true
   strip_quotes: true
   format_select_list: true
-  refactor_long_subqueries_to_cte: false
+  require_explicit_as: false
+  strip_trailing_whitespace: true
+  normalize_not_equal: true
+  normalize_boolean: true
+  operator_spacing: true
+  blank_lines_between_statements: true
+  newline_before_and_or: true
+  newline_before_join: true
+  newline_before_on: true
+  indent_case_when: true
+  leading_comma: false
+  normalize_null_comparison: true
+  trailing_newline: true
+  newline_before_limit: true
+  normalize_order_direction: true
+  cte_formatting: true
+  leading_comma_cte: false
+  remove_redundant_parens: false
+  newline_before_set_op: false
+  indent_subquery: false
+  newline_before_group_by: false
+  newline_before_order_by: false
+  newline_before_having: false
 ```
 
 ## Features
@@ -40,7 +86,6 @@ rules:
 - Aligns major SQL clauses (SELECT, FROM, WHERE, etc.) for readability.
 - Formats long SELECT lists vertically, with consistent indentation.
 - Strips quotes from identifiers when safe.
-- Optionally refactors long/non-correlated subqueries into CTEs.
 - Designed for Snowflake SQL, but extensible to other dialects with grammar changes.
 
 ## Usage
