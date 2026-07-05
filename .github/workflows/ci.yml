@@ -18,6 +18,26 @@ jobs:
         with:
           go-version: '1.22'
 
+      - name: Clean generated files
+        run: make clean
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install ANTLR4
+        run: |
+          curl -fsSL -o /usr/local/lib/antlr4.jar \
+            https://www.antlr.org/download/antlr-4.13.1-complete.jar
+          printf '#!/bin/sh\nexec java -jar /usr/local/lib/antlr4.jar "$@"\n' \
+            | sudo tee /usr/local/bin/antlr4 > /dev/null
+          sudo chmod +x /usr/local/bin/antlr4
+
+      - name: Generate parser/lexer
+        run: make generate
+
       - name: Run go fmt
         run: |
           go fmt ./...
