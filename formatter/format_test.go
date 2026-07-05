@@ -492,6 +492,30 @@ var testCases = []formatTestCase{
 		rules:    RulesConfig{UppercaseKeywords: true, NewlineBeforeSetOp: false},
 	},
 	{
+		name:     "indent_subquery: FROM clause subquery",
+		input:    `select * from (select id from users)`,
+		expected: "SELECT * FROM (\n  SELECT id FROM users\n)",
+		rules:    RulesConfig{UppercaseKeywords: true, IndentSubquery: true},
+	},
+	{
+		name:     "indent_subquery: WHERE IN subquery",
+		input:    `select id from users where id in (select id from admins)`,
+		expected: "SELECT id FROM users WHERE id IN (\n  SELECT id FROM admins\n)",
+		rules:    RulesConfig{UppercaseKeywords: true, IndentSubquery: true},
+	},
+	{
+		name:     "indent_subquery: nested subqueries get extra indentation per level",
+		input:    `select * from (select id from (select id from base) as t)`,
+		expected: "SELECT * FROM (\n  SELECT id FROM (\n    SELECT id FROM base\n  ) AS t\n)",
+		rules:    RulesConfig{UppercaseKeywords: true, IndentSubquery: true},
+	},
+	{
+		name:     "indent_subquery: function call parens unchanged",
+		input:    `select count(id) from users`,
+		expected: "SELECT count(id) FROM users",
+		rules:    RulesConfig{UppercaseKeywords: true, IndentSubquery: true},
+	},
+	{
 		name:     "remove_redundant_parens: preserves precedence-changing parens",
 		input:    `select id from users where (a = 1 or b = 2) and c = 3`,
 		expected: "SELECT id FROM users WHERE (a = 1 OR b = 2) AND c = 3",

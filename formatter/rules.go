@@ -1456,6 +1456,107 @@ func ensureTrailingNewline(sql string) string {
 	return sql + "\n"
 }
 
+// extractBalancedContent returns the text between the '(' at openIdx and its
+// matching ')', the index of that ')', and whether it succeeded.
+func extractBalancedContent(sql string, openIdx int) (content string, closeIdx int, ok bool) {
+	depth := 1
+	i := openIdx + 1
+	for i < len(sql) {
+		c := sql[i]
+		switch c {
+		case '(':
+			depth++
+		case ')':
+			depth--
+			if depth == 0 {
+				return sql[openIdx+1 : i], i, true
+			}
+		case '\'':
+			i++
+			for i < len(sql) {
+				if sql[i] == '\'' {
+					i++
+					if i < len(sql) && sql[i] == '\'' {
+						i++ // escaped ''
+						continue
+					}
+					break
+				}
+				i++
+			}
+			continue
+		}
+		i++
+	}
+	return "", openIdx, false
+}
+
+// indentSubqueries reformats inline (SELECT ...) subqueries to multi-line with
+// 2-space indentation per nesting level. The function is applied recursively so
+// that nested subqueries each receive 2 additional spaces relative to their
+// containing subquery.
+func indentSubqueries(sql string) string {
+	var out strings.Builder
+	i := 0
+	for i < len(sql) {
+		ch := sql[i]
+
+		if ch == '\'' {
+			out.WriteByte(ch)
+			i++
+			for i < len(sql) {
+				c := sql[i]
+				out.WriteByte(c)
+				i++
+				if c == '\'' {
+					if i < len(sql) && sql[i] == '\'' {
+						out.WriteByte(sql[i])
+						i++ // escaped ''
+						continue
+					}
+					break
+				}
+			}
+			continue
+		}
+
+		if ch == '(' {
+			j := i + 1
+			for j < len(sql) && sql[j] == ' ' {
+				j++
+			}
+			isSubquery := j+6 <= len(sql) &&
+				strings.EqualFold(sql[j:j+6], "SELECT") &&
+				(j+6 >= len(sql) || !isWordChar(sql[j+6]))
+
+			if isSubquery {
+				content, endIdx, ok := extractBalancedContent(sql, i)
+				if ok && !strings.Contains(content, "\n") {
+					// Recursively apply to inner content so nested subqueries
+					// are formatted first with relative indentation.
+					processed := indentSubqueries(strings.TrimSpace(content))
+					// Indent every line of the processed content by 2 spaces.
+					lines := strings.Split(processed, "\n")
+					for k, line := range lines {
+						if len(line) > 0 {
+							lines[k] = "  " + line
+						}
+					}
+					out.WriteString("(\n")
+					out.WriteString(strings.Join(lines, "\n"))
+					out.WriteString("\n)")
+					i = endIdx + 1
+					continue
+				}
+			}
+		}
+
+		out.WriteByte(ch)
+		i++
+	}
+	return out.String()
+}
+
 func ensureTrailingSemicolon(sql string) string {
 	trimmed := strings.TrimRight(sql, " \t\n\r")
 	trimmed = strings.TrimRight(trimmed, ";")

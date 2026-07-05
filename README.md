@@ -41,6 +41,7 @@ You can enable or disable individual formatting rules via `sqlfmt.yaml`:
 | Leading Comma CTE              | `leading_comma_cte`                | Move the CTE separator comma to the start of the next CTE's line (no-op when `cte_formatting` is enabled) |
 | Remove Redundant Parentheses   | `remove_redundant_parens`          | Remove unnecessary parentheses around simple expressions in WHERE, AND, OR, ON, and HAVING clauses |
 | Newline Before Set Operation   | `newline_before_set_op`            | Place UNION, INTERSECT, and EXCEPT each on their own line                                          |
+| Indent Subquery                | `indent_subquery`                  | Format inline subqueries to multi-line with 2-space indentation per nesting level                  |
 
 Example `sqlfmt.yaml`:
 
@@ -70,6 +71,7 @@ rules:
   leading_comma_cte: false
   remove_redundant_parens: false
   newline_before_set_op: false
+  indent_subquery: false
 ```
 
 ## Features
