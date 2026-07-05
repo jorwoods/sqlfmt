@@ -89,6 +89,7 @@ func isKeyword(token antlr.Token) bool {
 	case parser.SnowflakeLexerAS,
 		parser.SnowflakeLexerAND,
 		parser.SnowflakeLexerOR,
+		parser.SnowflakeLexerIN,
 		parser.SnowflakeLexerCASE,
 		parser.SnowflakeLexerWHEN,
 		parser.SnowflakeLexerTHEN,
@@ -189,6 +190,9 @@ func alignClausesOnly(tokens antlr.TokenStream, cfg *Config) string {
 		if strings.ToUpper(text) == "<EOF>" {
 			break
 		}
+		if strings.TrimSpace(text) == "" {
+			continue
+		}
 		if clauseTokenTypes[ttype] {
 			flushLine()
 			currentClause = ttype
@@ -260,6 +264,9 @@ func formatSelectListOnly(tokens antlr.TokenStream, cfg *Config) string {
 		ttype := tok.GetTokenType()
 		if strings.ToUpper(text) == "<EOF>" {
 			break
+		}
+		if strings.TrimSpace(text) == "" {
+			continue
 		}
 		if ttype == parser.SnowflakeLexerSEMI {
 			if inSelect {
@@ -394,6 +401,9 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 		ttype := tok.GetTokenType()
 		if strings.ToUpper(text) == "<EOF>" {
 			break
+		}
+		if strings.TrimSpace(text) == "" {
+			continue
 		}
 		if ttype == parser.SnowflakeLexerSEMI {
 			if inSelect && len(selectIdents) > 0 {
@@ -728,7 +738,10 @@ func isWordChar(b byte) bool {
 
 // spaceBeforeParenKeywords lists SQL keywords that precede ( but are not function calls.
 var spaceBeforeParenKeywords = func() map[string]bool {
-	words := []string{"over", "in", "from", "select", "not", "on", "join", "as"}
+	words := []string{
+		"over", "in", "from", "select", "not", "on", "join", "as",
+		"where", "and", "or", "having",
+	}
 	m := make(map[string]bool, len(words)*2)
 	for _, w := range words {
 		m[w] = true
@@ -774,6 +787,112 @@ func normalizeNullComparisons(tokens antlr.TokenStream) {
 			}
 			break
 		}
+	}
+}
+
+// removeRedundantParens blanks out parentheses that wrap a simple expression
+// (no subquery, no top-level AND/OR/NOT) in a boolean context (after WHERE,
+// AND, OR, ON, HAVING, SELECT, or COMMA).  Parens whose matching ) is
+// immediately followed by an arithmetic operator are preserved to avoid
+// changing precedence.
+func removeRedundantParens(tokens antlr.TokenStream) {
+	arithmeticOps := map[int]bool{
+		parser.SnowflakeLexerSTAR:   true,
+		parser.SnowflakeLexerDIVIDE: true,
+		parser.SnowflakeLexerMODULE: true,
+		parser.SnowflakeLexerPLUS:   true,
+		parser.SnowflakeLexerMINUS:  true,
+	}
+	booleanContext := map[int]bool{
+		parser.SnowflakeLexerWHERE:  true,
+		parser.SnowflakeLexerAND:    true,
+		parser.SnowflakeLexerOR:     true,
+		parser.SnowflakeLexerON:     true,
+		parser.SnowflakeLexerHAVING: true,
+		parser.SnowflakeLexerCOMMA:  true,
+		parser.SnowflakeLexerSELECT: true,
+	}
+	topLevelBoolOps := map[int]bool{
+		parser.SnowflakeLexerAND: true,
+		parser.SnowflakeLexerOR:  true,
+		parser.SnowflakeLexerNOT: true,
+	}
+
+	size := tokens.Size()
+	for i := 0; i < size; i++ {
+		tok := tokens.Get(i)
+		if tok.GetChannel() != antlr.TokenDefaultChannel {
+			continue
+		}
+		if tok.GetTokenType() != parser.SnowflakeLexerLR_BRACKET {
+			continue
+		}
+
+		// Find the matching closing paren.
+		depth := 1
+		j := i + 1
+		for j < size && depth > 0 {
+			t := tokens.Get(j)
+			if t.GetChannel() == antlr.TokenDefaultChannel {
+				tt := t.GetTokenType()
+				if tt == parser.SnowflakeLexerLR_BRACKET {
+					depth++
+				} else if tt == parser.SnowflakeLexerRR_BRACKET {
+					depth--
+				}
+			}
+			if depth > 0 {
+				j++
+			}
+		}
+		if depth != 0 {
+			continue
+		}
+		rparenIdx := j
+
+		// Only remove in boolean/list contexts; this also filters out function calls.
+		prevIdx := prevDefaultTokenIndex(tokens, i)
+		if prevIdx < 0 || !booleanContext[tokens.Get(prevIdx).GetTokenType()] {
+			continue
+		}
+
+		// Scan interior for a subquery or top-level boolean operator.
+		unsafe := false
+		innerDepth := 0
+		for k := i + 1; k < rparenIdx; k++ {
+			t := tokens.Get(k)
+			if t.GetChannel() != antlr.TokenDefaultChannel {
+				continue
+			}
+			tt := t.GetTokenType()
+			if tt == parser.SnowflakeLexerLR_BRACKET {
+				innerDepth++
+				continue
+			}
+			if tt == parser.SnowflakeLexerRR_BRACKET {
+				innerDepth--
+				continue
+			}
+			if innerDepth > 0 {
+				continue
+			}
+			if tt == parser.SnowflakeLexerSELECT || topLevelBoolOps[tt] {
+				unsafe = true
+				break
+			}
+		}
+		if unsafe {
+			continue
+		}
+
+		// Preserve parens needed for arithmetic precedence: (a+b)*c.
+		nextIdx := nextDefaultTokenIndex(tokens, rparenIdx)
+		if nextIdx >= 0 && arithmeticOps[tokens.Get(nextIdx).GetTokenType()] {
+			continue
+		}
+
+		tokens.Get(i).(*antlr.CommonToken).SetText(" ")
+		tokens.Get(rparenIdx).(*antlr.CommonToken).SetText(" ")
 	}
 }
 

@@ -30,6 +30,7 @@ type RulesConfig struct {
 	NormalizeOrderDirection       bool `yaml:"normalize_order_direction"`
 	CTEFormatting                 bool `yaml:"cte_formatting"`
 	LeadingCommaCTE               bool `yaml:"leading_comma_cte"`
+	RemoveRedundantParens         bool `yaml:"remove_redundant_parens"`
 }
 
 type Config struct {

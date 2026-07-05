@@ -37,7 +37,9 @@ You can enable or disable individual formatting rules via `sqlfmt.yaml`:
 | Trailing Newline               | `trailing_newline`                 | Ensure the output ends with exactly one newline character                            |
 | Newline Before LIMIT/OFFSET    | `newline_before_limit`             | Place LIMIT and OFFSET each on their own line                                        |
 | Normalize Order Direction      | `normalize_order_direction`        | Add explicit `ASC` to every ORDER BY item that has no direction keyword (requires `align_clauses`) |
-| CTE Formatting                 | `cte_formatting`                   | Place the closing `)` of each CTE subquery on its own line                           |
+| CTE Formatting                 | `cte_formatting`                   | Indent CTE body 2 spaces, place closing `)` on its own line, and add a blank line between CTEs |
+| Leading Comma CTE              | `leading_comma_cte`                | Move the CTE separator comma to the start of the next CTE's line (no-op when `cte_formatting` is enabled) |
+| Remove Redundant Parentheses   | `remove_redundant_parens`          | Remove unnecessary parentheses around simple expressions in WHERE, AND, OR, ON, and HAVING clauses |
 
 Example `sqlfmt.yaml`:
 
@@ -64,6 +66,8 @@ rules:
   newline_before_limit: true
   normalize_order_direction: true
   cte_formatting: true
+  leading_comma_cte: false
+  remove_redundant_parens: false
 ```
 
 ## Features

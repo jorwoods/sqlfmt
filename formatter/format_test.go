@@ -443,6 +443,48 @@ var testCases = []formatTestCase{
 		       expected: "SELECT id, CASE WHEN a = 1 AND b = 2 THEN 'y' ELSE 'n' END FROM users WHERE c = 3",
 		       rules: RulesConfig{UppercaseKeywords: true, NewlineBeforeAndOr: true, OperatorSpacing: true},
 	       },
+	{
+		name:     "remove_redundant_parens: simple WHERE condition",
+		input:    `select id from users where (id = 1)`,
+		expected: "SELECT id FROM users WHERE id = 1",
+		rules:    RulesConfig{UppercaseKeywords: true, RemoveRedundantParens: true, OperatorSpacing: true},
+	},
+	{
+		name:     "remove_redundant_parens: multiple AND conditions each wrapped",
+		input:    `select id from users where (a = 1) and (b = 2)`,
+		expected: "SELECT id FROM users WHERE a = 1 AND b = 2",
+		rules:    RulesConfig{UppercaseKeywords: true, RemoveRedundantParens: true, OperatorSpacing: true},
+	},
+	{
+		name:     "remove_redundant_parens: preserves function call parens",
+		input:    `select count(id) from users where upper(name) = 'ALICE'`,
+		expected: "SELECT count(id) FROM users WHERE upper(name) = 'ALICE'",
+		rules:    RulesConfig{UppercaseKeywords: true, RemoveRedundantParens: true, OperatorSpacing: true},
+	},
+	{
+		name:     "remove_redundant_parens: preserves subquery parens",
+		input:    `select id from users where id in (select id from admins)`,
+		expected: "SELECT id FROM users WHERE id IN (SELECT id FROM admins)",
+		rules:    RulesConfig{UppercaseKeywords: true, RemoveRedundantParens: true, OperatorSpacing: true},
+	},
+	{
+		name:     "uppercase IN keyword",
+		input:    `select id from users where id in (1, 2, 3)`,
+		expected: "SELECT id FROM users WHERE id IN (1, 2, 3)",
+		rules:    RulesConfig{UppercaseKeywords: true},
+	},
+	{
+		name:     "remove_redundant_parens: preserves precedence-changing parens",
+		input:    `select id from users where (a = 1 or b = 2) and c = 3`,
+		expected: "SELECT id FROM users WHERE (a = 1 OR b = 2) AND c = 3",
+		rules:    RulesConfig{UppercaseKeywords: true, RemoveRedundantParens: true, OperatorSpacing: true},
+	},
+	{
+		name:     "remove_redundant_parens: ON clause",
+		input:    `select id from a join b on (a_id = b_id)`,
+		expected: "SELECT id FROM a JOIN b ON a_id = b_id",
+		rules:    RulesConfig{UppercaseKeywords: true, RemoveRedundantParens: true, OperatorSpacing: true},
+	},
 }
 
 func TestStripTrailingWhitespace(t *testing.T) {

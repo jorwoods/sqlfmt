@@ -27,7 +27,8 @@ func rulesAllDisabled(rules RulesConfig) bool {
 		!rules.NewlineBeforeLimit &&
 		!rules.NormalizeOrderDirection &&
 		!rules.CTEFormatting &&
-		!rules.LeadingCommaCTE
+		!rules.LeadingCommaCTE &&
+		!rules.RemoveRedundantParens
 }
 
 func effectiveRules(cfg *Config) RulesConfig {
@@ -79,6 +80,9 @@ func applyTokenRules(stream antlr.TokenStream, rules RulesConfig) {
 	}
 	if rules.UppercaseFunctions {
 		uppercaseFunctions(stream)
+	}
+	if rules.RemoveRedundantParens {
+		removeRedundantParens(stream)
 	}
 }
 
