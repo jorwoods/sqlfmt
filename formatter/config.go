@@ -31,6 +31,7 @@ type RulesConfig struct {
 	CTEFormatting                 bool `yaml:"cte_formatting"`
 	LeadingCommaCTE               bool `yaml:"leading_comma_cte"`
 	RemoveRedundantParens         bool `yaml:"remove_redundant_parens"`
+	NewlineBeforeSetOp            bool `yaml:"newline_before_set_op"`
 }
 
 type Config struct {

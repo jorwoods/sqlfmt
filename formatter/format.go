@@ -28,7 +28,8 @@ func rulesAllDisabled(rules RulesConfig) bool {
 		!rules.NormalizeOrderDirection &&
 		!rules.CTEFormatting &&
 		!rules.LeadingCommaCTE &&
-		!rules.RemoveRedundantParens
+		!rules.RemoveRedundantParens &&
+		!rules.NewlineBeforeSetOp
 }
 
 func effectiveRules(cfg *Config) RulesConfig {

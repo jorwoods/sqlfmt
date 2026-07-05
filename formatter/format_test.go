@@ -474,6 +474,24 @@ var testCases = []formatTestCase{
 		rules:    RulesConfig{UppercaseKeywords: true},
 	},
 	{
+		name:     "newline_before_set_op: UNION on its own line (flat path)",
+		input:    `select id from t union select id from s`,
+		expected: "SELECT id FROM t\nUNION\nSELECT id FROM s",
+		rules:    RulesConfig{UppercaseKeywords: true, NewlineBeforeSetOp: true},
+	},
+	{
+		name:     "newline_before_set_op: UNION ALL on its own line",
+		input:    `select id from t union all select id from s`,
+		expected: "SELECT id FROM t\nUNION ALL\nSELECT id FROM s",
+		rules:    RulesConfig{UppercaseKeywords: true, NewlineBeforeSetOp: true},
+	},
+	{
+		name:     "newline_before_set_op: disabled keeps UNION inline",
+		input:    `select id from t union select id from s`,
+		expected: "SELECT id FROM t UNION SELECT id FROM s",
+		rules:    RulesConfig{UppercaseKeywords: true, NewlineBeforeSetOp: false},
+	},
+	{
 		name:     "remove_redundant_parens: preserves precedence-changing parens",
 		input:    `select id from users where (a = 1 or b = 2) and c = 3`,
 		expected: "SELECT id FROM users WHERE (a = 1 OR b = 2) AND c = 3",

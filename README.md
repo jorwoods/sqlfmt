@@ -40,6 +40,7 @@ You can enable or disable individual formatting rules via `sqlfmt.yaml`:
 | CTE Formatting                 | `cte_formatting`                   | Indent CTE body 2 spaces, place closing `)` on its own line, and add a blank line between CTEs |
 | Leading Comma CTE              | `leading_comma_cte`                | Move the CTE separator comma to the start of the next CTE's line (no-op when `cte_formatting` is enabled) |
 | Remove Redundant Parentheses   | `remove_redundant_parens`          | Remove unnecessary parentheses around simple expressions in WHERE, AND, OR, ON, and HAVING clauses |
+| Newline Before Set Operation   | `newline_before_set_op`            | Place UNION, INTERSECT, and EXCEPT each on their own line                                          |
 
 Example `sqlfmt.yaml`:
 
@@ -68,6 +69,7 @@ rules:
   cte_formatting: true
   leading_comma_cte: false
   remove_redundant_parens: false
+  newline_before_set_op: false
 ```
 
 ## Features

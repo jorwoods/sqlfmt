@@ -631,12 +631,14 @@ func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 	newlineAndOr := cfg != nil && cfg.Rules.NewlineBeforeAndOr
 	newlineOn := cfg != nil && cfg.Rules.NewlineBeforeOn
 	newlineLimit := cfg != nil && cfg.Rules.NewlineBeforeLimit
+	newlineSetOp := cfg != nil && cfg.Rules.NewlineBeforeSetOp
 	joinStarts := map[int]bool{}
 	if cfg != nil && cfg.Rules.NewlineBeforeJoin {
 		joinStarts = scanJoinStarts(tokens)
 	}
 	currentClause := 0
 	inJoin := false
+	afterSetOp := false
 	var out strings.Builder
 	prev := ""
 	prevTtype := -1
@@ -664,14 +666,24 @@ func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 			prevTtype = ttype
 			currentClause = 0
 			inJoin = false
+			afterSetOp = false
 			continue
 		}
-		// Set operations (UNION / INTERSECT / EXCEPT) always start a new line.
-		if setOperationTypes[ttype] {
+		// Set operations (UNION / INTERSECT / EXCEPT) on their own line when enabled.
+		if newlineSetOp && setOperationTypes[ttype] {
 			if prev != "" && prev != "\n" {
 				out.WriteString("\n")
 			}
 			prev = "\n"
+			afterSetOp = true
+		}
+		// The SELECT that follows a set-op also starts on its own line.
+		if newlineSetOp && afterSetOp && ttype == parser.SnowflakeLexerSELECT {
+			if prev != "" && prev != "\n" {
+				out.WriteString("\n")
+			}
+			prev = "\n"
+			afterSetOp = false
 		}
 		// JOIN clause on its own line.
 		if joinStarts[i] {

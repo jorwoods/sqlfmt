@@ -18,3 +18,4 @@ rules:
   cte_formatting: true
   leading_comma_cte: false
   remove_redundant_parens: false
+  newline_before_set_op: false
