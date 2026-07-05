@@ -4,7 +4,7 @@ rules:
   align_clauses: true
   strip_quotes: true
   format_select_list: true
-  require_explicit_as: false
+  require_explicit_as: true
   strip_trailing_whitespace: true
   normalize_not_equal: true
   operator_spacing: true
@@ -16,3 +16,4 @@ rules:
   newline_before_limit: true
   normalize_order_direction: true
   cte_formatting: true
+  leading_comma_cte: false
