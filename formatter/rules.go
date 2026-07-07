@@ -1478,6 +1478,48 @@ func ensureTrailingNewline(sql string) string {
 	return sql + "\n"
 }
 
+const inlineMaxLength = 120
+
+// inlineSimpleStatements collapses multi-line SQL statements back to a single
+// line when they have no JOINs, no CTEs, and the collapsed line stays under
+// inlineMaxLength characters. Statements that exceed the threshold or contain
+// JOINs/CTEs are left unchanged, allowing other formatting rules to apply.
+// Running before indentSubqueries ensures simple subquery content is already
+// on one line when the subquery formatter picks it up.
+func inlineSimpleStatements(sql string) string {
+	blocks := strings.Split(sql, "\n\n")
+	for i, block := range blocks {
+		blocks[i] = maybeInlineBlock(block)
+	}
+	return strings.Join(blocks, "\n\n")
+}
+
+func maybeInlineBlock(block string) string {
+	if !strings.Contains(block, "\n") {
+		return block
+	}
+	upper := strings.ToUpper(block)
+	// Don't inline multi-table queries.
+	for _, w := range strings.Fields(upper) {
+		if w == "JOIN" {
+			return block
+		}
+	}
+	// Don't inline CTEs.
+	if strings.HasPrefix(strings.TrimSpace(upper), "WITH ") {
+		return block
+	}
+	trailingNewline := strings.HasSuffix(block, "\n")
+	collapsed := strings.Join(strings.Fields(block), " ")
+	if len(collapsed) > inlineMaxLength {
+		return block
+	}
+	if trailingNewline {
+		collapsed += "\n"
+	}
+	return collapsed
+}
+
 // extractBalancedContent returns the text between the '(' at openIdx and its
 // matching ')', the index of that ')', and whether it succeeded.
 func extractBalancedContent(sql string, openIdx int) (content string, closeIdx int, ok bool) {

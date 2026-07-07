@@ -33,7 +33,8 @@ func rulesAllDisabled(rules RulesConfig) bool {
 		!rules.IndentSubquery &&
 		!rules.NewlineBeforeGroupBy &&
 		!rules.NewlineBeforeOrderBy &&
-		!rules.NewlineBeforeHaving
+		!rules.NewlineBeforeHaving &&
+		!rules.InlineOverride
 }
 
 func effectiveRules(cfg *Config) RulesConfig {
@@ -122,6 +123,9 @@ func FormatSQLWithConfig(input string, cfg *Config) string {
 	}
 	if rules.LeadingCommaCTE {
 		result = applyLeadingCommasCTE(result)
+	}
+	if rules.InlineOverride {
+		result = inlineSimpleStatements(result)
 	}
 	if rules.IndentSubquery {
 		result = indentSubqueries(result)

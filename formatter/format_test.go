@@ -540,6 +540,31 @@ var testCases = []formatTestCase{
 		rules:    RulesConfig{UppercaseKeywords: true, NewlineBeforeHaving: true, OperatorSpacing: true},
 	},
 	{
+		name:     "inline_override: simple single-table query stays on one line",
+		input:    "select id from t where x = 1 group by id having id > 1",
+		expected: "SELECT id FROM t WHERE x = 1 GROUP BY id HAVING id > 1",
+		rules:    RulesConfig{UppercaseKeywords: true, NewlineBeforeGroupBy: true, NewlineBeforeHaving: true, OperatorSpacing: true, InlineOverride: true},
+	},
+	{
+		name:     "inline_override: query with JOIN is not inlined",
+		input:    "select id from a join b on a_id = b_id group by id",
+		expected: "SELECT id FROM a JOIN b ON a_id = b_id\nGROUP BY id",
+		rules:    RulesConfig{UppercaseKeywords: true, NewlineBeforeGroupBy: true, OperatorSpacing: true, InlineOverride: true},
+	},
+	{
+		name:     "inline_override: collapses simple subquery content for indent_subquery",
+		input:    "select * from (select id from t where x = 1 group by id) as sub",
+		expected: "SELECT * FROM (\n  SELECT id FROM t WHERE x = 1 GROUP BY id\n) AS sub",
+		rules:    RulesConfig{UppercaseKeywords: true, NewlineBeforeGroupBy: true, IndentSubquery: true, OperatorSpacing: true, InlineOverride: true},
+	},
+	{
+		name:  "inline_override: long query stays multi-line with aligned formatting",
+		input: "select a, b, c, d, e, f, g, h, i from t where alpha = 1 and beta = 2 and gamma = 3 and delta = 4 and epsilon = 5 group by a, b, c, d, e, f, g, h, i",
+		// collapsed would be ~150 chars, over the 120-char threshold
+		expected: "SELECT a, b, c, d, e, f, g, h, i\n  FROM t\n WHERE alpha = 1\n   AND beta = 2\n   AND gamma = 3\n   AND delta = 4\n   AND epsilon = 5\n GROUP BY a, b, c, d, e, f, g, h, i",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, NewlineBeforeAndOr: true, OperatorSpacing: true, InlineOverride: true},
+	},
+	{
 		name:     "remove_redundant_parens: preserves precedence-changing parens",
 		input:    `select id from users where (a = 1 or b = 2) and c = 3`,
 		expected: "SELECT id FROM users WHERE (a = 1 OR b = 2) AND c = 3",

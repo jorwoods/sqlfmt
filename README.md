@@ -45,6 +45,7 @@ You can enable or disable individual formatting rules via `sqlfmt.yaml`:
 | Newline Before GROUP BY        | `newline_before_group_by`          | Place GROUP BY on its own line                                                                     |
 | Newline Before ORDER BY        | `newline_before_order_by`          | Place ORDER BY on its own line                                                                     |
 | Newline Before HAVING          | `newline_before_having`            | Place HAVING on its own line                                                                       |
+| Inline Override                | `inline_override`                  | Keep simple single-table statements on one line even when other newline rules are enabled; queries with JOINs, CTEs, or a collapsed length over 120 characters are left multi-line |
 
 Example `sqlfmt.yaml`:
 
@@ -78,6 +79,7 @@ rules:
   newline_before_group_by: false
   newline_before_order_by: false
   newline_before_having: false
+  inline_override: false
 ```
 
 ## Features
