@@ -36,6 +36,7 @@ type RulesConfig struct {
 	NewlineBeforeGroupBy          bool `yaml:"newline_before_group_by"`
 	NewlineBeforeOrderBy          bool `yaml:"newline_before_order_by"`
 	NewlineBeforeHaving           bool `yaml:"newline_before_having"`
+	InlineOverride                bool `yaml:"inline_override"`
 }
 
 type Config struct {
