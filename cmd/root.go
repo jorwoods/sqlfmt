@@ -8,10 +8,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Version is set at build time via -ldflags.
+var Version = "dev"
+
 var rootCmd = &cobra.Command{
-	Use:   "sqlfmt [file]",
-	Short: "Formats Snowflake SQL according to your style guide",
-	Args:  cobra.ExactArgs(1),
+	Use:     "sqlfmt [file]",
+	Short:   "Formats Snowflake SQL according to your style guide",
+	Version: Version,
+	Args:    cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		inputFile := args[0]
 		data, err := os.ReadFile(inputFile)
