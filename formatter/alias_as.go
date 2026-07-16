@@ -69,7 +69,8 @@ func requireExplicitAS(tokens antlr.TokenStream, cfg *Config) {
 		if ttype == parser.SnowflakeLexerAS {
 			continue
 		}
-		if !isWordLikeToken(tok) {
+		// A closing paren can end an aliasable expression too, e.g. MAX(x) alias.
+		if !isWordLikeToken(tok) && ttype != parser.SnowflakeLexerRR_BRACKET {
 			continue
 		}
 
