@@ -5,10 +5,16 @@ rules:
   strip_quotes: true
   format_select_list: true
   require_explicit_as: true
+  trailing_semicolon: true
   strip_trailing_whitespace: true
   normalize_not_equal: true
   operator_spacing: true
   blank_lines_between_statements: true
+  newline_before_and_or: true
+  normalize_boolean: true
+  uppercase_functions: true
+  newline_before_join: true
+  newline_before_on: true
   indent_case_when: true
   leading_comma: false
   normalize_null_comparison: true
@@ -17,10 +23,10 @@ rules:
   normalize_order_direction: true
   cte_formatting: true
   leading_comma_cte: false
-  remove_redundant_parens: false
-  newline_before_set_op: false
-  indent_subquery: false
-  newline_before_group_by: false
-  newline_before_order_by: false
-  newline_before_having: false
-  inline_override: false
+  remove_redundant_parens: true
+  newline_before_set_op: true
+  indent_subquery: true
+  newline_before_group_by: true
+  newline_before_order_by: true
+  newline_before_having: true
+  inline_override: true

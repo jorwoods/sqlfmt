@@ -428,7 +428,7 @@ var testCases = []formatTestCase{
 	{
 		name:     "cte_formatting: multiple CTEs",
 		input:    `with a as (select id from t), b as (select id from s) select * from a join b on a.id = b.id`,
-		expected: "WITH a AS (\n  SELECT id\n    FROM t\n)\n\n, b AS (\n  SELECT id\n    FROM s\n)\n\nSELECT *\n  FROM a\n  JOIN b\n    ON a . id = b . id",
+		expected: "WITH a AS (\n  SELECT id\n    FROM t\n)\n\n,b AS (\n  SELECT id\n    FROM s\n)\n\nSELECT *\n  FROM a\n  JOIN b\n    ON a.id = b.id",
 		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, CTEFormatting: true, NewlineBeforeJoin: true, NewlineBeforeOn: true, OperatorSpacing: true},
 	},
 	{

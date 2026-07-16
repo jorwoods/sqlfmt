@@ -127,6 +127,11 @@ func FormatSQLWithConfig(input string, cfg *Config) string {
 	if rules.InlineOverride {
 		result = inlineSimpleStatements(result)
 	}
+	if rules.CTEFormatting {
+		// Runs after InlineOverride: the blank line it inserts before FROM would
+		// otherwise look like a statement boundary and get independently collapsed.
+		result = formatCTASBody(result)
+	}
 	if rules.IndentSubquery {
 		result = indentSubqueries(result)
 	}

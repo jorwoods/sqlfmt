@@ -250,11 +250,19 @@ func formatSelectListOnly(tokens antlr.TokenStream, cfg *Config) string {
 	// Always use the mutated token stream for output, so uppercasing and quote stripping are reflected
 	var out []string
 	var selectIdents []string
+	var curItem []string
+	parenDepth := 0
 	var inSelect bool
 	var selectWord string
 	var afterSelect []string
 	selectIndent := ""
 	itemIndent := "       "
+	flushItem := func() {
+		if len(curItem) > 0 {
+			selectIdents = append(selectIdents, joinTokens(curItem, operatorSpacingEnabled(cfg)))
+			curItem = nil
+		}
+	}
 	for i := 0; i < tokens.Size(); i++ {
 		tok := tokens.Get(i)
 		if tok.GetChannel() != antlr.TokenDefaultChannel {
@@ -270,6 +278,7 @@ func formatSelectListOnly(tokens antlr.TokenStream, cfg *Config) string {
 		}
 		if ttype == parser.SnowflakeLexerSEMI {
 			if inSelect {
+				flushItem()
 				if len(selectIdents) > 3 {
 					for j, ident := range selectIdents {
 						comma := ","
@@ -302,11 +311,23 @@ func formatSelectListOnly(tokens antlr.TokenStream, cfg *Config) string {
 			continue
 		}
 		if inSelect {
-			if text == "," {
+			if text == "(" {
+				parenDepth++
+				curItem = append(curItem, text)
+				continue
+			}
+			if text == ")" {
+				parenDepth--
+				curItem = append(curItem, text)
+				continue
+			}
+			if text == "," && parenDepth == 0 {
+				flushItem()
 				continue
 			}
 			if clauseTokenTypes[ttype] && ttype != parser.SnowflakeLexerSELECT {
 				// End of select list
+				flushItem()
 				if len(selectIdents) > 3 {
 					for j, ident := range selectIdents {
 						comma := ","
@@ -328,14 +349,17 @@ func formatSelectListOnly(tokens antlr.TokenStream, cfg *Config) string {
 				afterSelect = append(afterSelect, text)
 				continue
 			}
-			if !clauseTokenTypes[ttype] || ttype == parser.SnowflakeLexerSELECT {
-				selectIdents = append(selectIdents, text)
+			{
+				curItem = append(curItem, text)
 			}
 			continue
 		}
 		if !inSelect {
 			afterSelect = append(afterSelect, text)
 		}
+	}
+	if inSelect {
+		flushItem()
 	}
 	if inSelect && len(selectIdents) > 0 {
 		if len(selectIdents) > 3 {
@@ -389,9 +413,17 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 	}
 	var inSelect bool
 	var selectIdents []string
+	var curItem []string
+	parenDepth := 0
 	var lastClauseText string
 	selectIndent := ""
 	itemIndent := "       "
+	flushItem := func() {
+		if len(curItem) > 0 {
+			selectIdents = append(selectIdents, joinTokens(curItem, operatorSpacingEnabled(cfg)))
+			curItem = nil
+		}
+	}
 	for i := 0; i < tokens.Size(); i++ {
 		tok := tokens.Get(i)
 		if tok.GetChannel() != antlr.TokenDefaultChannel {
@@ -406,6 +438,9 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 			continue
 		}
 		if ttype == parser.SnowflakeLexerSEMI {
+			if inSelect {
+				flushItem()
+			}
 			if inSelect && len(selectIdents) > 0 {
 				selectWord := lastClauseText
 				if selectWord == "" {
@@ -446,6 +481,9 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 			continue
 		}
 		if clauseTokenTypes[ttype] {
+			if inSelect {
+				flushItem()
+			}
 			if inSelect && len(selectIdents) > 0 {
 				selectWord := lastClauseText
 				if selectWord == "" {
@@ -546,15 +584,21 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 			continue
 		}
 		if inSelect {
-			if text == "," {
+			if text == "(" {
+				parenDepth++
+				curItem = append(curItem, text)
 				continue
 			}
-			if clauseTokenTypes[tok.GetTokenType()] && tok.GetTokenType() != parser.SnowflakeLexerSELECT {
-				inSelect = false
+			if text == ")" {
+				parenDepth--
+				curItem = append(curItem, text)
+				continue
 			}
-			if !clauseTokenTypes[tok.GetTokenType()] || tok.GetTokenType() == parser.SnowflakeLexerSELECT {
-				selectIdents = append(selectIdents, text)
+			if text == "," && parenDepth == 0 {
+				flushItem()
+				continue
 			}
+			curItem = append(curItem, text)
 			continue
 		}
 		if text == "," && len(line) > 0 {
@@ -562,6 +606,9 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 			continue
 		}
 		line = append(line, text)
+	}
+	if inSelect {
+		flushItem()
 	}
 	if inSelect && len(selectIdents) > 0 {
 		selectWord := lastClauseText
@@ -608,6 +655,8 @@ func joinTokens(tokens []string, operatorSpacing bool) string {
 				// no space before ) or ),  or );
 			} else if prev == "(" {
 				// no space
+			} else if text == "." || prev == "." {
+				// no space around qualified-name dots (schema.db.table)
 			} else if text == "(" && isFunctionCallParen(prev) {
 				// no space before ( after function name
 			} else if !operatorSpacing && (operatorSymbols[text] || operatorSymbols[prev]) {
@@ -1387,6 +1436,15 @@ func formatCTEClosingParens(sql string) string {
 					for i < len(sql) && (sql[i] == ' ' || sql[i] == '\t' || sql[i] == '\n' || sql[i] == '\r') {
 						i++
 					}
+					// If a CTE separator comma follows, keep it tight against the
+					// next CTE name instead of preserving the renderer's post-comma space.
+					if i < len(sql) && sql[i] == ',' {
+						out.WriteByte(',')
+						i++
+						for i < len(sql) && (sql[i] == ' ' || sql[i] == '\t' || sql[i] == '\n' || sql[i] == '\r') {
+							i++
+						}
+					}
 					continue
 				}
 			}
@@ -1421,16 +1479,55 @@ func formatCTEClosingParens(sql string) string {
 	return out.String()
 }
 
+// formatCTASBody indents the body of a CREATE ... AS SELECT (a CTAS whose
+// query has no wrapping parens, so formatCTEClosingParens never sees an "AS ("
+// to key off of) by 2 spaces, mirroring how parenthesized CTE bodies are
+// indented, and inserts a blank line between the select list and FROM.
+func formatCTASBody(sql string) string {
+	lines := strings.Split(sql, "\n")
+	var out []string
+	inBody := false
+	insertedBlankLine := false
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		upper := strings.ToUpper(trimmed)
+		if !inBody && strings.HasPrefix(upper, "CREATE ") && strings.HasSuffix(upper, " AS") {
+			out = append(out, line)
+			inBody = true
+			insertedBlankLine = false
+			continue
+		}
+		if inBody {
+			if trimmed == ";" {
+				out = append(out, line)
+				inBody = false
+				continue
+			}
+			if !insertedBlankLine && strings.HasPrefix(upper, "FROM") {
+				out = append(out, "")
+				insertedBlankLine = true
+			}
+			out = append(out, "  "+line)
+			continue
+		}
+		out = append(out, line)
+	}
+	return strings.Join(out, "\n")
+}
+
 // applyLeadingCommasCTE moves the comma that separates CTE definitions to the
 // start of the next line. It only fires on lines produced by formatCTEClosingParens
 // that begin with ")," — the CTE closing paren immediately followed by the separator.
+// applyLeadingCommasCTE styles the CTE separator comma that formatCTEClosingParens
+// places at the start of the next CTE's line, adding the space that makes it read
+// as a leading comma (matching the SELECT-list leading_comma convention) rather
+// than a bare separator.
 func applyLeadingCommasCTE(sql string) string {
 	lines := strings.Split(sql, "\n")
 	var out []string
 	for _, line := range lines {
-		if strings.HasPrefix(line, "),") {
-			out = append(out, ")")
-			out = append(out, ","+line[2:])
+		if strings.HasPrefix(line, ",") && !strings.HasPrefix(line, ", ") {
+			out = append(out, ", "+line[1:])
 		} else {
 			out = append(out, line)
 		}
