@@ -161,6 +161,8 @@ func alignClausesOnly(tokens antlr.TokenStream, cfg *Config) string {
 	if cfg != nil && cfg.Rules.NewlineBeforeJoin {
 		joinStarts = scanJoinStarts(tokens)
 	}
+	statementParens := scanStatementParens(tokens)
+	var scopeStack []bool
 	clauseIndent := map[int]string{
 		parser.SnowflakeLexerSELECT:  "",
 		parser.SnowflakeLexerFROM:    "  ",
@@ -193,7 +195,15 @@ func alignClausesOnly(tokens antlr.TokenStream, cfg *Config) string {
 		if strings.TrimSpace(text) == "" {
 			continue
 		}
-		if clauseTokenTypes[ttype] {
+		if ttype == parser.SnowflakeLexerLR_BRACKET {
+			scopeStack = append(scopeStack, statementParens[i])
+		} else if ttype == parser.SnowflakeLexerRR_BRACKET {
+			if len(scopeStack) > 0 {
+				scopeStack = scopeStack[:len(scopeStack)-1]
+			}
+		}
+		atStatementLevel := len(scopeStack) == 0 || scopeStack[len(scopeStack)-1]
+		if clauseTokenTypes[ttype] && atStatementLevel {
 			flushLine()
 			currentClause = ttype
 			currentIndent = clauseIndent[ttype]
@@ -209,26 +219,26 @@ func alignClausesOnly(tokens antlr.TokenStream, cfg *Config) string {
 			inJoin = false
 			continue
 		}
-		if newlineAndOr && booleanOpTokens[ttype] && wherelikeClauseTypes[currentClause] {
+		if newlineAndOr && booleanOpTokens[ttype] && wherelikeClauseTypes[currentClause] && atStatementLevel {
 			flushLine()
 			currentIndent = booleanOpIndent[ttype]
 			line = []string{text}
 			continue
 		}
-		if joinStarts[i] {
+		if joinStarts[i] && atStatementLevel {
 			flushLine()
 			currentIndent = "  "
 			inJoin = true
 			line = []string{text}
 			continue
 		}
-		if newlineOn && inJoin && ttype == parser.SnowflakeLexerON {
+		if newlineOn && inJoin && ttype == parser.SnowflakeLexerON && atStatementLevel {
 			flushLine()
 			currentIndent = "    "
 			line = []string{text}
 			continue
 		}
-		if newlineLimit && (ttype == parser.SnowflakeLexerLIMIT || ttype == parser.SnowflakeLexerOFFSET) {
+		if newlineLimit && (ttype == parser.SnowflakeLexerLIMIT || ttype == parser.SnowflakeLexerOFFSET) && atStatementLevel {
 			flushLine()
 			currentIndent = " "
 			line = []string{text}
@@ -325,7 +335,7 @@ func formatSelectListOnly(tokens antlr.TokenStream, cfg *Config) string {
 				flushItem()
 				continue
 			}
-			if clauseTokenTypes[ttype] && ttype != parser.SnowflakeLexerSELECT {
+			if clauseTokenTypes[ttype] && ttype != parser.SnowflakeLexerSELECT && itemParenDepth == 0 {
 				// End of select list
 				flushItem()
 				if len(selectIdents) > 3 {
@@ -398,6 +408,8 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 	if cfg != nil && cfg.Rules.NewlineBeforeJoin {
 		joinStarts = scanJoinStarts(tokens)
 	}
+	statementParens := scanStatementParens(tokens)
+	var scopeStack []bool
 	clauseIndent := map[int]string{
 		parser.SnowflakeLexerSELECT:  "",
 		parser.SnowflakeLexerFROM:    "  ",
@@ -433,6 +445,14 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 		if strings.TrimSpace(text) == "" {
 			continue
 		}
+		if ttype == parser.SnowflakeLexerLR_BRACKET {
+			scopeStack = append(scopeStack, statementParens[i])
+		} else if ttype == parser.SnowflakeLexerRR_BRACKET {
+			if len(scopeStack) > 0 {
+				scopeStack = scopeStack[:len(scopeStack)-1]
+			}
+		}
+		atStatementLevel := len(scopeStack) == 0 || scopeStack[len(scopeStack)-1]
 		if ttype == parser.SnowflakeLexerSEMI {
 			flushItem()
 			if inSelect && len(selectIdents) > 0 {
@@ -474,7 +494,7 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 			inJoin = false
 			continue
 		}
-		if clauseTokenTypes[ttype] {
+		if clauseTokenTypes[ttype] && atStatementLevel {
 			flushItem()
 			if inSelect && len(selectIdents) > 0 {
 				selectWord := lastClauseText
@@ -521,7 +541,7 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 			   }
 			   continue
 		}
-		if newlineAndOr && booleanOpTokens[ttype] && wherelikeClauseTypes[currentClause] {
+		if newlineAndOr && booleanOpTokens[ttype] && wherelikeClauseTypes[currentClause] && atStatementLevel {
 			if len(line) > 0 {
 				joined := joinTokens(line, operatorSpacingEnabled(cfg))
 				if currentIndent != "" {
@@ -534,7 +554,7 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 			line = []string{text}
 			continue
 		}
-		if joinStarts[i] {
+		if joinStarts[i] && atStatementLevel {
 			if len(line) > 0 {
 				joined := joinTokens(line, operatorSpacingEnabled(cfg))
 				if currentIndent != "" {
@@ -548,7 +568,7 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 			line = []string{text}
 			continue
 		}
-		if newlineOn && inJoin && ttype == parser.SnowflakeLexerON {
+		if newlineOn && inJoin && ttype == parser.SnowflakeLexerON && atStatementLevel {
 			if len(line) > 0 {
 				joined := joinTokens(line, operatorSpacingEnabled(cfg))
 				if currentIndent != "" {
@@ -561,7 +581,7 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 			line = []string{text}
 			continue
 		}
-		if newlineLimit && (ttype == parser.SnowflakeLexerLIMIT || ttype == parser.SnowflakeLexerOFFSET) {
+		if newlineLimit && (ttype == parser.SnowflakeLexerLIMIT || ttype == parser.SnowflakeLexerOFFSET) && atStatementLevel {
 			if len(line) > 0 {
 				joined := joinTokens(line, operatorSpacingEnabled(cfg))
 				if currentIndent != "" {
@@ -678,6 +698,8 @@ func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 	if cfg != nil && cfg.Rules.NewlineBeforeJoin {
 		joinStarts = scanJoinStarts(tokens)
 	}
+	statementParens := scanStatementParens(tokens)
+	var scopeStack []bool
 	currentClause := 0
 	inJoin := false
 	afterSetOp := false
@@ -691,7 +713,15 @@ func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 		if strings.ToUpper(text) == "<EOF>" || text == "" {
 			continue
 		}
-		if clauseTokenTypes[ttype] {
+		if ttype == parser.SnowflakeLexerLR_BRACKET {
+			scopeStack = append(scopeStack, statementParens[i])
+		} else if ttype == parser.SnowflakeLexerRR_BRACKET {
+			if len(scopeStack) > 0 {
+				scopeStack = scopeStack[:len(scopeStack)-1]
+			}
+		}
+		atStatementLevel := len(scopeStack) == 0 || scopeStack[len(scopeStack)-1]
+		if clauseTokenTypes[ttype] && atStatementLevel {
 			currentClause = ttype
 			inJoin = false
 		}
@@ -712,7 +742,7 @@ func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 			continue
 		}
 		// Set operations (UNION / INTERSECT / EXCEPT) on their own line when enabled.
-		if newlineSetOp && setOperationTypes[ttype] {
+		if newlineSetOp && setOperationTypes[ttype] && atStatementLevel {
 			if prev != "" && prev != "\n" {
 				out.WriteString("\n")
 			}
@@ -720,7 +750,7 @@ func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 			afterSetOp = true
 		}
 		// The SELECT that follows a set-op also starts on its own line.
-		if newlineSetOp && afterSetOp && ttype == parser.SnowflakeLexerSELECT {
+		if newlineSetOp && afterSetOp && ttype == parser.SnowflakeLexerSELECT && atStatementLevel {
 			if prev != "" && prev != "\n" {
 				out.WriteString("\n")
 			}
@@ -728,7 +758,7 @@ func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 			afterSetOp = false
 		}
 		// JOIN clause on its own line.
-		if joinStarts[i] {
+		if joinStarts[i] && atStatementLevel {
 			if prev != "" && prev != "\n" {
 				out.WriteString("\n")
 			}
@@ -736,33 +766,33 @@ func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 			inJoin = true
 		}
 		// LIMIT / OFFSET on their own line.
-		if newlineLimit && (ttype == parser.SnowflakeLexerLIMIT || ttype == parser.SnowflakeLexerOFFSET) {
+		if newlineLimit && (ttype == parser.SnowflakeLexerLIMIT || ttype == parser.SnowflakeLexerOFFSET) && atStatementLevel {
 			if prev != "" && prev != "\n" {
 				out.WriteString("\n")
 			}
 			prev = "\n"
 		}
 		// GROUP BY, ORDER BY, HAVING on their own lines when respective rules are enabled.
-		if newlineGroupBy && ttype == parser.SnowflakeLexerGROUP {
+		if newlineGroupBy && ttype == parser.SnowflakeLexerGROUP && atStatementLevel {
 			if prev != "" && prev != "\n" {
 				out.WriteString("\n")
 			}
 			prev = "\n"
 		}
-		if newlineOrderBy && ttype == parser.SnowflakeLexerORDER {
+		if newlineOrderBy && ttype == parser.SnowflakeLexerORDER && atStatementLevel {
 			if prev != "" && prev != "\n" {
 				out.WriteString("\n")
 			}
 			prev = "\n"
 		}
-		if newlineHaving && ttype == parser.SnowflakeLexerHAVING {
+		if newlineHaving && ttype == parser.SnowflakeLexerHAVING && atStatementLevel {
 			if prev != "" && prev != "\n" {
 				out.WriteString("\n")
 			}
 			prev = "\n"
 		}
 		// ON on its own line inside a JOIN clause.
-		if newlineOn && inJoin && ttype == parser.SnowflakeLexerON {
+		if newlineOn && inJoin && ttype == parser.SnowflakeLexerON && atStatementLevel {
 			if prev != "" && prev != "\n" {
 				out.WriteString("\n")
 			}
@@ -772,7 +802,7 @@ func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 			continue
 		}
 		// AND/OR on their own line inside WHERE/HAVING/QUALIFY.
-		if newlineAndOr && booleanOpTokens[ttype] && wherelikeClauseTypes[currentClause] {
+		if newlineAndOr && booleanOpTokens[ttype] && wherelikeClauseTypes[currentClause] && atStatementLevel {
 			if prev != "" {
 				out.WriteString("\n")
 			}
@@ -1024,6 +1054,32 @@ func scanJoinStarts(tokens antlr.TokenStream) map[int]bool {
 		starts[startIdx] = true
 	}
 	return starts
+}
+
+// scanStatementParens identifies, by token index, which '(' tokens open a
+// nested SELECT statement (a subquery or CTE body) as opposed to a plain
+// expression grouping (function call args, window OVER(...), IN (...) value
+// lists, arithmetic grouping). A '(' opens a statement scope iff the next
+// default-channel token is SELECT. Clause keywords encountered inside a
+// non-statement paren (e.g. ORDER BY inside OVER(...)) are not real clause
+// boundaries and must not trigger clause formatting.
+func scanStatementParens(tokens antlr.TokenStream) map[int]bool {
+	isStatement := map[int]bool{}
+	for i := 0; i < tokens.Size(); i++ {
+		tok := tokens.Get(i)
+		if tok.GetChannel() != antlr.TokenDefaultChannel || tok.GetTokenType() != parser.SnowflakeLexerLR_BRACKET {
+			continue
+		}
+		for j := i + 1; j < tokens.Size(); j++ {
+			next := tokens.Get(j)
+			if next.GetChannel() != antlr.TokenDefaultChannel {
+				continue
+			}
+			isStatement[i] = next.GetTokenType() == parser.SnowflakeLexerSELECT
+			break
+		}
+	}
+	return isStatement
 }
 
 func uppercaseFunctions(tokens antlr.TokenStream) {

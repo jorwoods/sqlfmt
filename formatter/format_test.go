@@ -624,6 +624,30 @@ var testCases = []formatTestCase{
 		expected: "SELECT id\n  FROM t\n ORDER BY upper(name), round(score, 1) DESC",
 		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, OperatorSpacing: true},
 	},
+	{
+		name:     "qualify: ORDER BY inside window OVER() clause is not a clause boundary",
+		input:    `select id from t qualify row_number() over (partition by coalesce(a,b) order by c) = 1`,
+		expected: "SELECT id\n  FROM t\n QUALIFY row_number() over (partition BY coalesce(a, b) ORDER BY c) = 1",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, OperatorSpacing: true},
+	},
+	{
+		name:     "format_select_list: window function with ORDER BY inside OVER() not split as separate items",
+		input:    `select row_number() over (order by x), y, z, w from t`,
+		expected: "select row_number() over (order by x),\n       y,\n       z,\n       w\nfrom t",
+		rules:    RulesConfig{FormatSelectList: true, OperatorSpacing: true},
+	},
+	{
+		name:     "tokens_to_text: ORDER BY inside OVER() does not trigger newline_before_order_by",
+		input:    `select id, row_number() over (order by x) as rn from t order by id`,
+		expected: "SELECT id, row_number() over (ORDER BY x) AS rn FROM t\nORDER BY id",
+		rules:    RulesConfig{UppercaseKeywords: true, NewlineBeforeOrderBy: true, OperatorSpacing: true},
+	},
+	{
+		name:     "nested scope: subquery's own WHERE still breaks while its window function's ORDER BY stays inline",
+		input:    `select id from (select id, row_number() over (order by x) as rn from t where coalesce(a,b) = 1) s where s.rn = 1`,
+		expected: "SELECT id\n  FROM (\nSELECT id, row_number() over (ORDER BY x) AS rn\n  FROM t\n WHERE coalesce(a, b) = 1) s\n WHERE s.rn = 1",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, OperatorSpacing: true},
+	},
 }
 
 func TestStripTrailingWhitespace(t *testing.T) {
