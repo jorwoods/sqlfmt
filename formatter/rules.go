@@ -1371,25 +1371,139 @@ func hasMoreNonEOFTokens(tokens antlr.TokenStream, from int) bool {
 // normalizeOrderDirectionExplicit adds explicit ASC to every ORDER BY item that has
 // no direction keyword. Works on both aligned (ORDER BY on its own line) and flat
 // (inline) output. Must run before formatCaseExpressions.
+// normalizeOrderDirectionExplicit finds real, top-level ORDER BY clauses and
+// appends explicit ASC to any item missing a direction. It must not touch an
+// "ORDER BY" that appears inside a window function's OVER(...) or any other
+// plain expression grouping -- only a nested SELECT statement (subquery or
+// CTE body) reopens a fresh scope in which a nested ORDER BY is itself real.
+// A '(' is classified as opening a statement scope using the same heuristic
+// as scanStatementParens/indentSubqueries: immediately followed by SELECT.
 func normalizeOrderDirectionExplicit(sql string) string {
-	lines := strings.Split(sql, "\n")
-	for i, line := range lines {
-		upper := strings.ToUpper(line)
-		obIdx := strings.Index(upper, "ORDER BY ")
-		if obIdx < 0 {
+	var out strings.Builder
+	var scopeStack []bool // true = statement-opening paren, false = expression grouping
+	i := 0
+	for i < len(sql) {
+		ch := sql[i]
+
+		if ch == '\'' {
+			j := skipStringLiteral(sql, i)
+			out.WriteString(sql[i:j])
+			i = j
 			continue
 		}
-		prefix := line[:obIdx+len("ORDER BY ")]
-		rest := line[obIdx+len("ORDER BY "):]
-		// Locate any inline terminator (LIMIT/OFFSET) so we don't consume it.
-		itemStr, suffix := splitOrderBySuffix(rest)
-		items := splitAtTopLevelCommas(itemStr)
-		for j, item := range items {
-			items[j] = ensureExplicitOrderDirection(item)
+
+		if ch == '(' {
+			scopeStack = append(scopeStack, isStatementOpenParen(sql, i))
+			out.WriteByte(ch)
+			i++
+			continue
 		}
-		lines[i] = prefix + strings.Join(items, ", ") + suffix
+		if ch == ')' {
+			if len(scopeStack) > 0 {
+				scopeStack = scopeStack[:len(scopeStack)-1]
+			}
+			out.WriteByte(ch)
+			i++
+			continue
+		}
+
+		atStatementLevel := len(scopeStack) == 0 || scopeStack[len(scopeStack)-1]
+		if atStatementLevel && matchesKeywordCI(sql, i, "ORDER BY ") {
+			out.WriteString(sql[i : i+len("ORDER BY ")])
+			i += len("ORDER BY ")
+
+			// Scan forward for the end of this ORDER BY's item list: end of
+			// line, or a ')' that isn't matched by a '(' opened within the
+			// item list itself (i.e. it closes the scope ORDER BY lives in).
+			localDepth := 0
+			end := i
+			for end < len(sql) {
+				c := sql[end]
+				if c == '\n' {
+					break
+				}
+				if c == '\'' {
+					end = skipStringLiteral(sql, end)
+					continue
+				}
+				if c == '(' {
+					localDepth++
+					end++
+					continue
+				}
+				if c == ')' {
+					if localDepth == 0 {
+						break
+					}
+					localDepth--
+					end++
+					continue
+				}
+				end++
+			}
+
+			// Locate any inline terminator (LIMIT/OFFSET) so we don't consume it.
+			itemStr, suffix := splitOrderBySuffix(sql[i:end])
+			items := splitAtTopLevelCommas(itemStr)
+			for j, item := range items {
+				items[j] = ensureExplicitOrderDirection(item)
+			}
+			out.WriteString(strings.Join(items, ", "))
+			out.WriteString(suffix)
+			i = end
+			continue
+		}
+
+		out.WriteByte(ch)
+		i++
 	}
-	return strings.Join(lines, "\n")
+	return out.String()
+}
+
+// skipStringLiteral returns the index just past the single-quoted string
+// literal starting at sql[i] (i must point at the opening quote), handling
+// '' as an escaped quote within the literal.
+func skipStringLiteral(sql string, i int) int {
+	j := i + 1
+	for j < len(sql) {
+		if sql[j] == '\'' {
+			j++
+			if j < len(sql) && sql[j] == '\'' {
+				j++
+				continue
+			}
+			break
+		}
+		j++
+	}
+	return j
+}
+
+// matchesKeywordCI reports whether sql[i:] starts with kw (case-insensitive)
+// at a word boundary, i.e. not preceded by an identifier character.
+func matchesKeywordCI(sql string, i int, kw string) bool {
+	if i+len(kw) > len(sql) {
+		return false
+	}
+	if !strings.EqualFold(sql[i:i+len(kw)], kw) {
+		return false
+	}
+	return i == 0 || !isWordChar(sql[i-1])
+}
+
+// isStatementOpenParen reports whether the '(' at index openIdx in sql opens
+// a nested SELECT statement (subquery or CTE body) as opposed to a plain
+// expression grouping (function call args, OVER(...), IN (...) value lists).
+// Mirrors scanStatementParens's token-based classification for use on
+// already-rendered text.
+func isStatementOpenParen(sql string, openIdx int) bool {
+	j := openIdx + 1
+	for j < len(sql) && (sql[j] == ' ' || sql[j] == '\t' || sql[j] == '\n' || sql[j] == '\r') {
+		j++
+	}
+	return j+6 <= len(sql) &&
+		strings.EqualFold(sql[j:j+6], "SELECT") &&
+		(j+6 >= len(sql) || !isWordChar(sql[j+6]))
 }
 
 // splitOrderBySuffix splits an ORDER BY remainder into the item list and any
@@ -1790,15 +1904,7 @@ func indentSubqueries(sql string) string {
 		}
 
 		if ch == '(' {
-			j := i + 1
-			for j < len(sql) && sql[j] == ' ' {
-				j++
-			}
-			isSubquery := j+6 <= len(sql) &&
-				strings.EqualFold(sql[j:j+6], "SELECT") &&
-				(j+6 >= len(sql) || !isWordChar(sql[j+6]))
-
-			if isSubquery {
+			if isStatementOpenParen(sql, i) {
 				content, endIdx, ok := extractBalancedContent(sql, i)
 				if ok && !strings.Contains(content, "\n") {
 					// Recursively apply to inner content so nested subqueries

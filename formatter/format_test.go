@@ -468,6 +468,24 @@ var testCases = []formatTestCase{
 		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, NormalizeOrderDirection: true, NewlineBeforeLimit: true},
 	},
 	{
+		name:     "normalize_order_direction: window function's ORDER BY inside OVER() is left untouched",
+		input:    `select row_number() over (order by x) as rn from t`,
+		expected: "select row_number() over (order by x) as rn from t",
+		rules:    RulesConfig{NormalizeOrderDirection: true, OperatorSpacing: true},
+	},
+	{
+		name:     "normalize_order_direction: real ORDER BY normalized alongside an untouched nested window ORDER BY",
+		input:    `select id, row_number() over (order by x) as rn from t order by id, name`,
+		expected: "SELECT id, row_number() over (ORDER BY x) AS rn\n  FROM t\n ORDER BY id ASC, name ASC",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, NormalizeOrderDirection: true, OperatorSpacing: true},
+	},
+	{
+		name:     "normalize_order_direction: subquery's own ORDER BY still normalized (statement scope)",
+		input:    `select id from (select id from t order by name) s`,
+		expected: "SELECT id\n  FROM (\nSELECT id\n  FROM t\n ORDER BY name ASC) s",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, NormalizeOrderDirection: true, OperatorSpacing: true},
+	},
+	{
 		name:     "cte_formatting: closing paren on its own line",
 		input:    `with cte as (select id from users where active = true) select * from cte`,
 		expected: "WITH cte AS (\n  SELECT id\n    FROM users\n   WHERE active = TRUE\n)\n\nSELECT *\n  FROM cte",
