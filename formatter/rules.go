@@ -25,6 +25,57 @@ var operatorTokenTypes = map[int]bool{
 	parser.SnowflakeLexerDIVIDE: true,
 }
 
+// unarySignContextTypes are operator token types after which a following
+// '+' or '-' is a unary sign rather than binary addition/subtraction, e.g.
+// the "-1" in "x * -1" or "x % -1". Kept separate from operatorTokenTypes,
+// which omits STAR/MODULE so compact mode never strips the space out of
+// "SELECT *" -- those tokens still precede a value position for unary-sign
+// purposes.
+var unarySignContextTypes = map[int]bool{
+	parser.SnowflakeLexerEQ:     true,
+	parser.SnowflakeLexerGT:     true,
+	parser.SnowflakeLexerGE:     true,
+	parser.SnowflakeLexerLT:     true,
+	parser.SnowflakeLexerLE:     true,
+	parser.SnowflakeLexerNE:     true,
+	parser.SnowflakeLexerPLUS:   true,
+	parser.SnowflakeLexerMINUS:  true,
+	parser.SnowflakeLexerDIVIDE: true,
+	parser.SnowflakeLexerSTAR:   true,
+	parser.SnowflakeLexerMODULE: true,
+	parser.SnowflakeLexerSELECT: true,
+	parser.SnowflakeLexerWHERE:  true,
+	parser.SnowflakeLexerAND:    true,
+	parser.SnowflakeLexerOR:     true,
+	parser.SnowflakeLexerON:     true,
+	parser.SnowflakeLexerHAVING: true,
+	parser.SnowflakeLexerWHEN:   true,
+	parser.SnowflakeLexerTHEN:   true,
+	parser.SnowflakeLexerELSE:   true,
+	parser.SnowflakeLexerNOT:    true,
+	parser.SnowflakeLexerIN:       true,
+	parser.SnowflakeLexerLIKE:     true,
+	parser.SnowflakeLexerBETWEEN:  true,
+	parser.SnowflakeLexerCASE:     true,
+	parser.SnowflakeLexerQUALIFY:  true,
+	parser.SnowflakeLexerBY:       true,
+	parser.SnowflakeLexerDISTINCT: true,
+	parser.SnowflakeLexerIS:       true,
+}
+
+// isUnarySignPositionType reports whether ttype is a '+' or '-' token
+// appearing where a value is expected (start of an item, right after '('
+// or ',', right after another operator, or right after a keyword like
+// SELECT/WHERE/AND/WHEN/BY) rather than as binary addition/subtraction.
+// Mirrors isUnarySignPosition but works off token types, for the
+// token-type-based render path (tokensToText).
+func isUnarySignPositionType(ttype int, prevText string, prevTtype int) bool {
+	if ttype != parser.SnowflakeLexerPLUS && ttype != parser.SnowflakeLexerMINUS {
+		return false
+	}
+	return prevText == "" || prevText == "(" || prevText == "," || unarySignContextTypes[prevTtype]
+}
+
 var joinQualifierTypes = map[int]bool{
 	parser.SnowflakeLexerINNER:   true,
 	parser.SnowflakeLexerLEFT:    true,
@@ -659,6 +710,7 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 func joinTokens(tokens []string, operatorSpacing bool) string {
 	var out strings.Builder
 	prev := ""
+	prevIsUnarySign := false
 	for _, text := range tokens {
 		if prev != "" {
 			if text == "," || text == ";" || strings.HasPrefix(text, ")") {
@@ -667,6 +719,8 @@ func joinTokens(tokens []string, operatorSpacing bool) string {
 				// no space
 			} else if text == "." || prev == "." {
 				// no space around qualifier dot, e.g. a.id
+			} else if prevIsUnarySign {
+				// no space after a unary sign, e.g. -6
 			} else if text == "(" && isFunctionCallParen(prev) {
 				// no space before ( after function name
 			} else if !operatorSpacing && (operatorSymbols[text] || operatorSymbols[prev]) {
@@ -676,9 +730,49 @@ func joinTokens(tokens []string, operatorSpacing bool) string {
 			}
 		}
 		out.WriteString(text)
+		prevIsUnarySign = isUnarySignPosition(text, prev)
 		prev = text
 	}
 	return out.String()
+}
+
+// isUnarySignPosition reports whether text is a '+' or '-' token appearing
+// where a value is expected (start of an item, right after '(' or ',', or
+// right after another operator) rather than as binary addition/subtraction.
+// unarySignContextSymbols are operator token texts after which a following
+// '+' or '-' is a unary sign rather than binary addition/subtraction, e.g.
+// the "-1" in "x * -1" or "x % -1". This is deliberately its own set rather
+// than reusing operatorSymbols: operatorSymbols excludes "*" so that compact
+// mode never strips the space out of "SELECT *", but "*" still precedes a
+// value position for unary-sign purposes.
+var unarySignContextSymbols = map[string]bool{
+	"=": true, ">": true, ">=": true, "<": true, "<=": true,
+	"!=": true, "+": true, "-": true, "/": true, "*": true, "%": true,
+}
+
+// unarySignContextKeywords are keyword texts after which a following '+' or
+// '-' is a unary sign rather than binary addition/subtraction, e.g. the
+// "-amount" in "select -amount" or "order by -amount". Token-type
+// information isn't available in joinTokens (it works off plain token
+// text), so this is matched case-insensitively against the raw text.
+var unarySignContextKeywords = map[string]bool{
+	"select": true, "where": true, "and": true, "or": true, "on": true,
+	"having": true, "when": true, "then": true, "else": true, "not": true,
+	"in": true, "like": true, "between": true, "case": true, "qualify": true,
+	"by": true, "distinct": true, "is": true,
+}
+
+func isUnarySignPosition(text, prev string) bool {
+	if text != "+" && text != "-" {
+		return false
+	}
+	// A trailing comma may be glued onto the previous token's text (e.g.
+	// alignClausesOnly appends "," directly onto the prior line element
+	// instead of keeping it as its own array entry).
+	if prev == "" || prev == "(" || strings.HasSuffix(prev, ",") || unarySignContextSymbols[prev] {
+		return true
+	}
+	return unarySignContextKeywords[strings.ToLower(prev)]
 }
 // rightAlignClauses uses all rules enabled (for legacy calls)
 func rightAlignClauses(tokens antlr.TokenStream) string {
@@ -706,6 +800,7 @@ func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 	var out strings.Builder
 	prev := ""
 	prevTtype := -1
+	prevIsUnarySign := false
 	for i := 0; i < tokens.Size(); i++ {
 		tok := tokens.Get(i)
 		text := strings.TrimSpace(tok.GetText())
@@ -818,6 +913,8 @@ func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 				// no space
 			} else if text == "." || prev == "." {
 				// no space around qualifier dot, e.g. a.id
+			} else if prevIsUnarySign {
+				// no space after a unary sign, e.g. -6
 			} else if text == "(" && isFunctionCallParen(prev) {
 				// no space before ( after function name
 			} else if !operatorSpacing && (operatorTokenTypes[ttype] || operatorTokenTypes[prevTtype]) {
@@ -827,6 +924,7 @@ func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 			}
 		}
 		out.WriteString(text)
+		prevIsUnarySign = isUnarySignPositionType(ttype, prev, prevTtype)
 		prev = text
 		prevTtype = ttype
 	}
