@@ -907,8 +907,9 @@ func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 			continue
 		}
 		if prev != "" {
-			if text == "," || text == ")" {
-				// no space
+			if text == "," || strings.HasPrefix(text, ")") {
+				// no space (the ')' prefix check also covers a ')' token
+				// whose text got " AS" suffixed onto it by require_explicit_as)
 			} else if prev == "(" || prev == "\n" {
 				// no space
 			} else if text == "." || prev == "." {
