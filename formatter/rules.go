@@ -250,11 +250,19 @@ func formatSelectListOnly(tokens antlr.TokenStream, cfg *Config) string {
 	// Always use the mutated token stream for output, so uppercasing and quote stripping are reflected
 	var out []string
 	var selectIdents []string
+	var itemTokens []string
+	var itemParenDepth int
 	var inSelect bool
 	var selectWord string
 	var afterSelect []string
 	selectIndent := ""
 	itemIndent := "       "
+	flushItem := func() {
+		if len(itemTokens) > 0 {
+			selectIdents = append(selectIdents, joinTokens(itemTokens, operatorSpacingEnabled(cfg)))
+			itemTokens = nil
+		}
+	}
 	for i := 0; i < tokens.Size(); i++ {
 		tok := tokens.Get(i)
 		if tok.GetChannel() != antlr.TokenDefaultChannel {
@@ -269,6 +277,7 @@ func formatSelectListOnly(tokens antlr.TokenStream, cfg *Config) string {
 			continue
 		}
 		if ttype == parser.SnowflakeLexerSEMI {
+			flushItem()
 			if inSelect {
 				if len(selectIdents) > 3 {
 					for j, ident := range selectIdents {
@@ -302,11 +311,23 @@ func formatSelectListOnly(tokens antlr.TokenStream, cfg *Config) string {
 			continue
 		}
 		if inSelect {
-			if text == "," {
+			if ttype == parser.SnowflakeLexerLR_BRACKET {
+				itemParenDepth++
+				itemTokens = append(itemTokens, text)
+				continue
+			}
+			if ttype == parser.SnowflakeLexerRR_BRACKET {
+				itemParenDepth--
+				itemTokens = append(itemTokens, text)
+				continue
+			}
+			if text == "," && itemParenDepth == 0 {
+				flushItem()
 				continue
 			}
 			if clauseTokenTypes[ttype] && ttype != parser.SnowflakeLexerSELECT {
 				// End of select list
+				flushItem()
 				if len(selectIdents) > 3 {
 					for j, ident := range selectIdents {
 						comma := ","
@@ -328,15 +349,14 @@ func formatSelectListOnly(tokens antlr.TokenStream, cfg *Config) string {
 				afterSelect = append(afterSelect, text)
 				continue
 			}
-			if !clauseTokenTypes[ttype] || ttype == parser.SnowflakeLexerSELECT {
-				selectIdents = append(selectIdents, text)
-			}
+			itemTokens = append(itemTokens, text)
 			continue
 		}
 		if !inSelect {
 			afterSelect = append(afterSelect, text)
 		}
 	}
+	flushItem()
 	if inSelect && len(selectIdents) > 0 {
 		if len(selectIdents) > 3 {
 			for j, ident := range selectIdents {
@@ -389,9 +409,17 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 	}
 	var inSelect bool
 	var selectIdents []string
+	var itemTokens []string
+	var itemParenDepth int
 	var lastClauseText string
 	selectIndent := ""
 	itemIndent := "       "
+	flushItem := func() {
+		if len(itemTokens) > 0 {
+			selectIdents = append(selectIdents, joinTokens(itemTokens, operatorSpacingEnabled(cfg)))
+			itemTokens = nil
+		}
+	}
 	for i := 0; i < tokens.Size(); i++ {
 		tok := tokens.Get(i)
 		if tok.GetChannel() != antlr.TokenDefaultChannel {
@@ -406,6 +434,7 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 			continue
 		}
 		if ttype == parser.SnowflakeLexerSEMI {
+			flushItem()
 			if inSelect && len(selectIdents) > 0 {
 				selectWord := lastClauseText
 				if selectWord == "" {
@@ -446,6 +475,7 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 			continue
 		}
 		if clauseTokenTypes[ttype] {
+			flushItem()
 			if inSelect && len(selectIdents) > 0 {
 				selectWord := lastClauseText
 				if selectWord == "" {
@@ -546,15 +576,21 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 			continue
 		}
 		if inSelect {
-			if text == "," {
+			if ttype == parser.SnowflakeLexerLR_BRACKET {
+				itemParenDepth++
+				itemTokens = append(itemTokens, text)
 				continue
 			}
-			if clauseTokenTypes[tok.GetTokenType()] && tok.GetTokenType() != parser.SnowflakeLexerSELECT {
-				inSelect = false
+			if ttype == parser.SnowflakeLexerRR_BRACKET {
+				itemParenDepth--
+				itemTokens = append(itemTokens, text)
+				continue
 			}
-			if !clauseTokenTypes[tok.GetTokenType()] || tok.GetTokenType() == parser.SnowflakeLexerSELECT {
-				selectIdents = append(selectIdents, text)
+			if text == "," && itemParenDepth == 0 {
+				flushItem()
+				continue
 			}
+			itemTokens = append(itemTokens, text)
 			continue
 		}
 		if text == "," && len(line) > 0 {
@@ -563,6 +599,7 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 		}
 		line = append(line, text)
 	}
+	flushItem()
 	if inSelect && len(selectIdents) > 0 {
 		selectWord := lastClauseText
 		if selectWord == "" {

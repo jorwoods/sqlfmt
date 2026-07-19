@@ -576,6 +576,54 @@ var testCases = []formatTestCase{
 		expected: "SELECT id FROM a JOIN b ON a_id = b_id",
 		rules:    RulesConfig{UppercaseKeywords: true, RemoveRedundantParens: true, OperatorSpacing: true},
 	},
+	{
+		name:     "select_list_function_call: function call with alias not split across items",
+		input:    `select customer_id, customer_name, customer_group, max(signup_date) signup_date from t`,
+		expected: "SELECT customer_id,\n       customer_name,\n       customer_group,\n       max(signup_date) signup_date\n  FROM t",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, FormatSelectList: true, OperatorSpacing: true},
+	},
+	{
+		name:     "format_select_list: function call with alias not split across items (select-list-only path)",
+		input:    `select customer_id, customer_name, customer_group, max(signup_date) signup_date from t`,
+		expected: "select customer_id,\n       customer_name,\n       customer_group,\n       max(signup_date) signup_date\nfrom t",
+		rules:    RulesConfig{FormatSelectList: true, OperatorSpacing: true},
+	},
+	{
+		name:     "select_list_function_call: qualified columns not split across items",
+		input:    `select a.id, a.name, b.id, b.name from a join b on a.id = b.id`,
+		expected: "SELECT a.id,\n       a.name,\n       b.id,\n       b.name\n  FROM a JOIN b ON a.id = b.id",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, FormatSelectList: true, OperatorSpacing: true},
+	},
+	{
+		name:     "join_on: function calls in ON clause stay on one line",
+		input:    `select id from t join s on coalesce(t.id, 0) = coalesce(s.id, 0)`,
+		expected: "SELECT id FROM t JOIN s ON coalesce(t.id, 0) = coalesce(s.id, 0)",
+		rules:    RulesConfig{UppercaseKeywords: true, OperatorSpacing: true},
+	},
+	{
+		name:     "where: function calls in WHERE clause stay on one line",
+		input:    `select id from t where round(amount, 2) > 10 and datediff('day', a, b) < 5`,
+		expected: "SELECT id\n  FROM t\n WHERE round(amount, 2) > 10 AND datediff('day', a, b) < 5",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, OperatorSpacing: true},
+	},
+	{
+		name:     "group_by: function calls in GROUP BY stay on one line",
+		input:    `select id from t group by date_trunc('month', signup_date), coalesce(region, 'unknown')`,
+		expected: "SELECT id\n  FROM t\n GROUP BY date_trunc('month', signup_date), coalesce(region, 'unknown')",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, OperatorSpacing: true},
+	},
+	{
+		name:     "having: function calls in HAVING stay on one line",
+		input:    `select id from t having sum(coalesce(amount, 0)) > 100`,
+		expected: "SELECT id\n  FROM t\n HAVING sum(coalesce(amount, 0)) > 100",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, OperatorSpacing: true},
+	},
+	{
+		name:     "order_by: function calls in ORDER BY stay on one line",
+		input:    `select id from t order by upper(name), round(score, 1) desc`,
+		expected: "SELECT id\n  FROM t\n ORDER BY upper(name), round(score, 1) DESC",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, OperatorSpacing: true},
+	},
 }
 
 func TestStripTrailingWhitespace(t *testing.T) {
