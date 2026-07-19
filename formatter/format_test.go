@@ -123,6 +123,12 @@ var testCases = []formatTestCase{
 		       rules: RulesConfig{UppercaseKeywords: true, OperatorSpacing: false},
 	       },
 	       {
+		       name: "operator_spacing alone is not a no-op (rulesAllDisabled must account for it)",
+		       input: `select a-b, x=1 from t`,
+		       expected: "select a - b, x = 1 from t",
+		       rules: RulesConfig{OperatorSpacing: true},
+	       },
+	       {
 		       name: "blank lines between statements with inline semicolons",
 		       input: `select id from users; select name from products`,
 		       expected: "SELECT id FROM users\n;\n\nSELECT name FROM products",

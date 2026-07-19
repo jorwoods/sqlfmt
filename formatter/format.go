@@ -14,6 +14,7 @@ func rulesAllDisabled(rules RulesConfig) bool {
 		!rules.TrailingSemicolon &&
 		!rules.StripTrailingWhitespace &&
 		!rules.NormalizeNotEqual &&
+		!rules.OperatorSpacing &&
 		!rules.BlankLinesBetweenStatements &&
 		!rules.NewlineBeforeAndOr &&
 		!rules.NormalizeBoolean &&
