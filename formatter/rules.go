@@ -608,6 +608,8 @@ func joinTokens(tokens []string, operatorSpacing bool) string {
 				// no space before ) or ),  or );
 			} else if prev == "(" {
 				// no space
+			} else if text == "." || prev == "." {
+				// no space around qualifier dot, e.g. a.id
 			} else if text == "(" && isFunctionCallParen(prev) {
 				// no space before ( after function name
 			} else if !operatorSpacing && (operatorSymbols[text] || operatorSymbols[prev]) {
@@ -747,6 +749,8 @@ func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 				// no space
 			} else if prev == "(" || prev == "\n" {
 				// no space
+			} else if text == "." || prev == "." {
+				// no space around qualifier dot, e.g. a.id
 			} else if text == "(" && isFunctionCallParen(prev) {
 				// no space before ( after function name
 			} else if !operatorSpacing && (operatorTokenTypes[ttype] || operatorTokenTypes[prevTtype]) {
@@ -1386,6 +1390,16 @@ func formatCTEClosingParens(sql string) string {
 					// we don't double-emit the newline that was already there.
 					for i < len(sql) && (sql[i] == ' ' || sql[i] == '\t' || sql[i] == '\n' || sql[i] == '\r') {
 						i++
+					}
+					// If a CTE separator comma follows, emit it directly and skip
+					// the whitespace after it too, so the next CTE name hugs the
+					// comma (e.g. ",b AS (" rather than ", b AS (").
+					if i < len(sql) && sql[i] == ',' {
+						out.WriteByte(',')
+						i++
+						for i < len(sql) && (sql[i] == ' ' || sql[i] == '\t' || sql[i] == '\n' || sql[i] == '\r') {
+							i++
+						}
 					}
 					continue
 				}
