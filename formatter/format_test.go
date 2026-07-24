@@ -762,6 +762,30 @@ var testCases = []formatTestCase{
 		expected: "SELECT id\n  FROM (\nSELECT id, row_number() over (ORDER BY x) AS rn\n  FROM t\n WHERE coalesce(a, b) = 1) s\n WHERE s.rn = 1",
 		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, OperatorSpacing: true},
 	},
+	{
+		name:     "create_table_as: DDL keywords uppercased and body separated onto its own indented line",
+		input:    `create or replace temporary table foo as select id from t`,
+		expected: "CREATE OR REPLACE TEMPORARY TABLE foo AS\n  SELECT id\n    FROM t",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, OperatorSpacing: true},
+	},
+	{
+		name:     "create_table_as: WITH cte body separated and indented under the DDL header",
+		input:    `create table foo as with a as (select id from t) select * from a`,
+		expected: "CREATE TABLE foo AS\n  WITH a AS (\n    SELECT id\n      FROM t\n  )\n\n  SELECT *\n    FROM a",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, OperatorSpacing: true, CTEFormatting: true},
+	},
+	{
+		name:     "create_table_as: indentation stops at the trailing semicolon",
+		input:    `create table foo as select id from t`,
+		expected: "CREATE TABLE foo AS\n  SELECT id\n    FROM t\n;",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, OperatorSpacing: true, TrailingSemicolon: true},
+	},
+	{
+		name:     "create_table_as: other statements in the same script are untouched",
+		input:    `select id from other; create table foo as select id from t; select id from foo`,
+		expected: "SELECT id\n  FROM other\n;\n\nCREATE TABLE foo AS\n  SELECT id\n    FROM t\n;\n\nSELECT id\n  FROM foo",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, OperatorSpacing: true, BlankLinesBetweenStatements: true},
+	},
 }
 
 func TestStripTrailingWhitespace(t *testing.T) {

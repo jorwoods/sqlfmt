@@ -167,7 +167,15 @@ func isKeyword(token antlr.Token) bool {
 		parser.SnowflakeLexerINTERSECT,
 		parser.SnowflakeLexerEXCEPT,
 		parser.SnowflakeLexerALL,
-		parser.SnowflakeLexerWITH:
+		parser.SnowflakeLexerWITH,
+		parser.SnowflakeLexerCREATE,
+		parser.SnowflakeLexerREPLACE,
+		parser.SnowflakeLexerTABLE,
+		parser.SnowflakeLexerTEMPORARY,
+		parser.SnowflakeLexerTEMP,
+		parser.SnowflakeLexerTRANSIENT,
+		parser.SnowflakeLexerIF,
+		parser.SnowflakeLexerEXISTS:
 		return true
 	}
 	return false
@@ -213,6 +221,7 @@ func alignClausesOnly(tokens antlr.TokenStream, cfg *Config) string {
 		joinStarts = scanJoinStarts(tokens)
 	}
 	statementParens := scanStatementParens(tokens)
+	createTableBreaks := scanCreateTableAsBreaks(tokens)
 	var scopeStack []bool
 	clauseIndent := map[int]string{
 		parser.SnowflakeLexerSELECT:  "",
@@ -254,6 +263,13 @@ func alignClausesOnly(tokens antlr.TokenStream, cfg *Config) string {
 			}
 		}
 		atStatementLevel := len(scopeStack) == 0 || scopeStack[len(scopeStack)-1]
+		if createTableBreaks[i] {
+			// The query body of a CREATE ... TABLE ... AS starts on its own
+			// line. Doesn't `continue` -- the token itself (SELECT or WITH)
+			// still needs its normal handling below.
+			flushLine()
+			currentIndent = ""
+		}
 		if clauseTokenTypes[ttype] && atStatementLevel {
 			flushLine()
 			currentClause = ttype
@@ -460,6 +476,7 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 		joinStarts = scanJoinStarts(tokens)
 	}
 	statementParens := scanStatementParens(tokens)
+	createTableBreaks := scanCreateTableAsBreaks(tokens)
 	var scopeStack []bool
 	clauseIndent := map[int]string{
 		parser.SnowflakeLexerSELECT:  "",
@@ -504,6 +521,22 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 			}
 		}
 		atStatementLevel := len(scopeStack) == 0 || scopeStack[len(scopeStack)-1]
+		if createTableBreaks[i] {
+			// The query body of a CREATE ... TABLE ... AS starts on its own
+			// line. Doesn't `continue` -- the token itself (SELECT or WITH)
+			// still needs its normal handling below. At this point in the
+			// DDL header, selectIdents/inSelect are still at their zero
+			// value, so only the accumulated "line" needs flushing.
+			if len(line) > 0 {
+				joined := joinTokens(line, operatorSpacingEnabled(cfg))
+				if currentIndent != "" {
+					joined = currentIndent + joined
+				}
+				out = append(out, joined)
+				line = nil
+			}
+			currentIndent = ""
+		}
 		if ttype == parser.SnowflakeLexerSEMI {
 			flushItem()
 			if inSelect && len(selectIdents) > 0 {
@@ -793,6 +826,7 @@ func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 		joinStarts = scanJoinStarts(tokens)
 	}
 	statementParens := scanStatementParens(tokens)
+	createTableBreaks := scanCreateTableAsBreaks(tokens)
 	var scopeStack []bool
 	currentClause := 0
 	inJoin := false
@@ -835,6 +869,14 @@ func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 			inJoin = false
 			afterSetOp = false
 			continue
+		}
+		// The query body of a CREATE ... TABLE ... AS starts on its own line,
+		// separate from the DDL header.
+		if createTableBreaks[i] {
+			if prev != "" && prev != "\n" {
+				out.WriteString("\n")
+			}
+			prev = "\n"
 		}
 		// Set operations (UNION / INTERSECT / EXCEPT) on their own line when enabled.
 		if newlineSetOp && setOperationTypes[ttype] && atStatementLevel {
@@ -1179,6 +1221,57 @@ func scanStatementParens(tokens antlr.TokenStream) map[int]bool {
 		}
 	}
 	return isStatement
+}
+
+// scanCreateTableAsBreaks identifies, by token index, where a newline must
+// be forced to separate a CREATE [OR REPLACE] [TEMPORARY|TRANSIENT] TABLE
+// ... AS header from the SELECT/WITH query body that follows it. CREATE and
+// TABLE aren't clauseTokenTypes, so without this the DDL prefix and the
+// query merge onto one line -- and even where SELECT already gets its own
+// line via the normal clause machinery, a WITH-led CTE body doesn't (WITH
+// isn't a clauseTokenType either). Returns the index of the token
+// immediately after the DDL "AS", which is where the query body starts.
+func scanCreateTableAsBreaks(tokens antlr.TokenStream) map[int]bool {
+	breaks := map[int]bool{}
+	atStatementStart := true
+	inCreateTable := false
+	sawTable := false
+	for i := 0; i < tokens.Size(); i++ {
+		tok := tokens.Get(i)
+		if tok.GetChannel() != antlr.TokenDefaultChannel {
+			continue
+		}
+		text := tok.GetText()
+		ttype := tok.GetTokenType()
+		if strings.EqualFold(text, "<EOF>") {
+			break
+		}
+		if ttype == parser.SnowflakeLexerSEMI {
+			atStatementStart = true
+			inCreateTable = false
+			sawTable = false
+			continue
+		}
+		if atStatementStart {
+			inCreateTable = ttype == parser.SnowflakeLexerCREATE
+			atStatementStart = false
+		}
+		if !inCreateTable {
+			continue
+		}
+		if ttype == parser.SnowflakeLexerTABLE {
+			sawTable = true
+			continue
+		}
+		if sawTable && ttype == parser.SnowflakeLexerAS {
+			if nextIdx := nextDefaultTokenIndex(tokens, i); nextIdx != -1 {
+				breaks[nextIdx] = true
+			}
+			inCreateTable = false
+			sawTable = false
+		}
+	}
+	return breaks
 }
 
 func uppercaseFunctions(tokens antlr.TokenStream) {
@@ -1931,6 +2024,48 @@ func indentSubqueries(sql string) string {
 		i++
 	}
 	return out.String()
+}
+
+// isCreateTableAsHeaderLine reports whether line is a fully-rendered
+// "CREATE [OR REPLACE] [TEMPORARY|TRANSIENT] TABLE ... AS" DDL header line.
+// The render-level fix (scanCreateTableAsBreaks) guarantees this "AS" is the
+// last thing on its line, immediately before the query body begins on the
+// following line, so a simple prefix/suffix/contains check on the whole
+// line is reliable here.
+func isCreateTableAsHeaderLine(line string) bool {
+	upper := strings.ToUpper(strings.TrimSpace(line))
+	return strings.HasPrefix(upper, "CREATE ") &&
+		strings.Contains(upper, " TABLE ") &&
+		strings.HasSuffix(upper, " AS")
+}
+
+// indentCreateTableAsBody indents the query body of a CREATE ... TABLE ...
+// AS statement by 2 spaces, so it reads as nested under the DDL header
+// rather than sitting at the same column. Indentation stops at the
+// statement's closing ";" (left unindented, matching how a semicolon
+// already renders on its own line) or at end of string if there is no
+// trailing semicolon. A blank line within the body (e.g. the separator
+// CTEFormatting inserts after a CTE's closing paren) is left blank rather
+// than indented, but doesn't end the body -- it's a stylistic separator
+// within the statement, not a statement boundary.
+func indentCreateTableAsBody(sql string) string {
+	lines := strings.Split(sql, "\n")
+	for i := 0; i < len(lines); i++ {
+		if !isCreateTableAsHeaderLine(lines[i]) {
+			continue
+		}
+		for i++; i < len(lines); i++ {
+			trimmed := strings.TrimSpace(lines[i])
+			if trimmed == ";" {
+				break
+			}
+			if trimmed == "" {
+				continue
+			}
+			lines[i] = "  " + lines[i]
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 func ensureTrailingSemicolon(sql string) string {

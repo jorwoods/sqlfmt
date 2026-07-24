@@ -137,6 +137,7 @@ func FormatSQLWithConfig(input string, cfg *Config) string {
 	if rules.LeadingComma {
 		result = applyLeadingCommas(result)
 	}
+	result = indentCreateTableAsBody(result)
 	if rules.TrailingSemicolon {
 		result = ensureTrailingSemicolon(result)
 	}
