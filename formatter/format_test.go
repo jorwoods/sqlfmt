@@ -524,7 +524,7 @@ var testCases = []formatTestCase{
 	{
 		name:     "normalize_order_direction: real ORDER BY normalized alongside an untouched nested window ORDER BY",
 		input:    `select id, row_number() over (order by x) as rn from t order by id, name`,
-		expected: "SELECT id, row_number() over (ORDER BY x) AS rn\n  FROM t\n ORDER BY id ASC, name ASC",
+		expected: "SELECT id, row_number() OVER (ORDER BY x) AS rn\n  FROM t\n ORDER BY id ASC, name ASC",
 		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, NormalizeOrderDirection: true, OperatorSpacing: true},
 	},
 	{
@@ -741,7 +741,7 @@ var testCases = []formatTestCase{
 	{
 		name:     "qualify: ORDER BY inside window OVER() clause is not a clause boundary",
 		input:    `select id from t qualify row_number() over (partition by coalesce(a,b) order by c) = 1`,
-		expected: "SELECT id\n  FROM t\n QUALIFY row_number() over (partition BY coalesce(a, b) ORDER BY c) = 1",
+		expected: "SELECT id\n  FROM t\n QUALIFY row_number() OVER (partition BY coalesce(a, b) ORDER BY c) = 1",
 		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, OperatorSpacing: true},
 	},
 	{
@@ -753,13 +753,13 @@ var testCases = []formatTestCase{
 	{
 		name:     "tokens_to_text: ORDER BY inside OVER() does not trigger newline_before_order_by",
 		input:    `select id, row_number() over (order by x) as rn from t order by id`,
-		expected: "SELECT id, row_number() over (ORDER BY x) AS rn FROM t\nORDER BY id",
+		expected: "SELECT id, row_number() OVER (ORDER BY x) AS rn FROM t\nORDER BY id",
 		rules:    RulesConfig{UppercaseKeywords: true, NewlineBeforeOrderBy: true, OperatorSpacing: true},
 	},
 	{
 		name:     "nested scope: subquery's own WHERE still breaks while its window function's ORDER BY stays inline",
 		input:    `select id from (select id, row_number() over (order by x) as rn from t where coalesce(a,b) = 1) s where s.rn = 1`,
-		expected: "SELECT id\n  FROM (\nSELECT id, row_number() over (ORDER BY x) AS rn\n  FROM t\n WHERE coalesce(a, b) = 1) s\n WHERE s.rn = 1",
+		expected: "SELECT id\n  FROM (\nSELECT id, row_number() OVER (ORDER BY x) AS rn\n  FROM t\n WHERE coalesce(a, b) = 1) s\n WHERE s.rn = 1",
 		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, OperatorSpacing: true},
 	},
 	{

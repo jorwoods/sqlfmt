@@ -175,7 +175,8 @@ func isKeyword(token antlr.Token) bool {
 		parser.SnowflakeLexerTEMP,
 		parser.SnowflakeLexerTRANSIENT,
 		parser.SnowflakeLexerIF,
-		parser.SnowflakeLexerEXISTS:
+		parser.SnowflakeLexerEXISTS,
+		parser.SnowflakeLexerOVER:
 		return true
 	}
 	return false
