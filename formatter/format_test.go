@@ -42,6 +42,54 @@ var testCases = []formatTestCase{
 		       expected: "SELECT id user_id, name AS user_name FROM users u",
 		       rules: RulesConfig{UppercaseKeywords: true, RequireExplicitAS: false},
 	       },
+	       {
+		       name:     "require_explicit_as: window function's internal PARTITION BY/ORDER BY untouched, trailing alias gets AS",
+		       input:    `select row_number() over (partition by x order by y desc) rn from t`,
+		       expected: "select row_number() over (partition by x order by y desc) AS rn from t",
+		       rules:    RulesConfig{RequireExplicitAS: true, OperatorSpacing: true},
+	       },
+	       {
+		       name:     "require_explicit_as: JOIN...ON condition untouched",
+		       input:    `select id from t join s on t.id = s.id where t.x is not null and t.y = 1`,
+		       expected: "select id from t join s on t.id = s.id where t.x is not null and t.y = 1",
+		       rules:    RulesConfig{RequireExplicitAS: true, OperatorSpacing: true},
+	       },
+	       {
+		       name:     "require_explicit_as: CASE WHEN...END expression untouched internally, trailing alias gets AS",
+		       input:    `select case when x is not null then 'a' else 'b' end status from t`,
+		       expected: "select case when x is not null then 'a' else 'b' end AS status from t",
+		       rules:    RulesConfig{RequireExplicitAS: true, OperatorSpacing: true},
+	       },
+	       {
+		       name:     "require_explicit_as: scalar subquery in select list gets AS, clause state does not leak to the next item",
+		       input:    `select id, (select x from y where cond) result, name zalias from t`,
+		       expected: "select id, (select x from y where cond) AS result, name AS zalias from t",
+		       rules:    RulesConfig{RequireExplicitAS: true, OperatorSpacing: true},
+	       },
+	       {
+		       name:     "require_explicit_as: FROM subquery gets AS on its alias",
+		       input:    `select id from (select id from t where active = true) s`,
+		       expected: "select id from (select id from t where active = true) AS s",
+		       rules:    RulesConfig{RequireExplicitAS: true, OperatorSpacing: true},
+	       },
+	       {
+		       name:     "require_explicit_as: IN subquery in WHERE untouched",
+		       input:    `select id from t where id in (select id from admins) and status = 'x'`,
+		       expected: "select id from t where id in (select id from admins) and status = 'x'",
+		       rules:    RulesConfig{RequireExplicitAS: true, OperatorSpacing: true},
+	       },
+	       {
+		       name:     "require_explicit_as: LEFT JOIN qualifier does not double up AS on the preceding table alias",
+		       input:    `select f.id from customer_flags f left join ranked_orders r on r.id = f.id`,
+		       expected: "SELECT f.id\n  FROM customer_flags AS f\n  LEFT JOIN ranked_orders AS r\n    ON r.id = f.id",
+		       rules:    RulesConfig{RequireExplicitAS: true, UppercaseKeywords: true, AlignClauses: true, OperatorSpacing: true, NewlineBeforeJoin: true, NewlineBeforeOn: true},
+	       },
+	       {
+		       name:     "require_explicit_as: function call result gets AS",
+		       input:    `select a, b, c, max(x) total from t`,
+		       expected: "select a,\n       b,\n       c,\n       max(x) AS total\n  from t",
+		       rules:    RulesConfig{RequireExplicitAS: true, OperatorSpacing: true, AlignClauses: true, FormatSelectList: true},
+	       },
        {
 	       name: "uppercase keywords only",
 	       input: `select id, name from users`,
@@ -121,6 +169,54 @@ var testCases = []formatTestCase{
 		       input: `select id from users where age = 30`,
 		       expected: "SELECT id FROM users WHERE age=30",
 		       rules: RulesConfig{UppercaseKeywords: true, OperatorSpacing: false},
+	       },
+	       {
+		       name:     "unary minus: function argument stays attached, tokens_to_text path",
+		       input:    `select dateadd('month', -6, current_date) from t`,
+		       expected: "select dateadd('month', -6, current_date) from t",
+		       rules:    RulesConfig{OperatorSpacing: true},
+	       },
+	       {
+		       name:     "unary minus: after comparison operator, tokens_to_text path",
+		       input:    `select id from t where x = -1`,
+		       expected: "select id from t where x = -1",
+		       rules:    RulesConfig{OperatorSpacing: true},
+	       },
+	       {
+		       name:     "unary minus: start of select-list expression after a keyword, tokens_to_text path",
+		       input:    `select -amount from t`,
+		       expected: "select -amount from t",
+		       rules:    RulesConfig{OperatorSpacing: true},
+	       },
+	       {
+		       name:     "unary minus: after multiplication and modulo operators, tokens_to_text path",
+		       input:    `select x * -1, x % -1 from t`,
+		       expected: "select x * -1, x % -1 from t",
+		       rules:    RulesConfig{OperatorSpacing: true},
+	       },
+	       {
+		       name:     "binary minus unaffected by unary-sign fix, tokens_to_text path",
+		       input:    `select a - b from t`,
+		       expected: "select a - b from t",
+		       rules:    RulesConfig{OperatorSpacing: true},
+	       },
+	       {
+		       name:     "unary minus: function argument stays attached, align_clauses path",
+		       input:    `select dateadd('month', -6, current_date) from t`,
+		       expected: "select dateadd('month', -6, current_date)\n  from t",
+		       rules:    RulesConfig{OperatorSpacing: true, AlignClauses: true},
+	       },
+	       {
+		       name:     "unary minus: function argument stays attached, select-list item path",
+		       input:    `select a, b, c, dateadd('month', -6, current_date) from t`,
+		       expected: "select a,\n       b,\n       c,\n       dateadd('month', -6, current_date)\n  from t",
+		       rules:    RulesConfig{OperatorSpacing: true, AlignClauses: true, FormatSelectList: true},
+	       },
+	       {
+		       name:     "operator_spacing alone is not a no-op (rulesAllDisabled must account for it)",
+		       input:    `select a-b, x=1 from t`,
+		       expected: "select a - b, x = 1 from t",
+		       rules: RulesConfig{OperatorSpacing: true},
 	       },
 	       {
 		       name: "blank lines between statements with inline semicolons",
@@ -420,6 +516,24 @@ var testCases = []formatTestCase{
 		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, NormalizeOrderDirection: true, NewlineBeforeLimit: true},
 	},
 	{
+		name:     "normalize_order_direction: window function's ORDER BY inside OVER() is left untouched",
+		input:    `select row_number() over (order by x) as rn from t`,
+		expected: "select row_number() over (order by x) as rn from t",
+		rules:    RulesConfig{NormalizeOrderDirection: true, OperatorSpacing: true},
+	},
+	{
+		name:     "normalize_order_direction: real ORDER BY normalized alongside an untouched nested window ORDER BY",
+		input:    `select id, row_number() over (order by x) as rn from t order by id, name`,
+		expected: "SELECT id, row_number() OVER (ORDER BY x) AS rn\n  FROM t\n ORDER BY id ASC, name ASC",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, NormalizeOrderDirection: true, OperatorSpacing: true},
+	},
+	{
+		name:     "normalize_order_direction: subquery's own ORDER BY still normalized (statement scope)",
+		input:    `select id from (select id from t order by name) s`,
+		expected: "SELECT id\n  FROM (\nSELECT id\n  FROM t\n ORDER BY name ASC) s",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, NormalizeOrderDirection: true, OperatorSpacing: true},
+	},
+	{
 		name:     "cte_formatting: closing paren on its own line",
 		input:    `with cte as (select id from users where active = true) select * from cte`,
 		expected: "WITH cte AS (\n  SELECT id\n    FROM users\n   WHERE active = TRUE\n)\n\nSELECT *\n  FROM cte",
@@ -627,7 +741,7 @@ var testCases = []formatTestCase{
 	{
 		name:     "qualify: ORDER BY inside window OVER() clause is not a clause boundary",
 		input:    `select id from t qualify row_number() over (partition by coalesce(a,b) order by c) = 1`,
-		expected: "SELECT id\n  FROM t\n QUALIFY row_number() over (partition BY coalesce(a, b) ORDER BY c) = 1",
+		expected: "SELECT id\n  FROM t\n QUALIFY row_number() OVER (partition BY coalesce(a, b) ORDER BY c) = 1",
 		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, OperatorSpacing: true},
 	},
 	{
@@ -639,14 +753,38 @@ var testCases = []formatTestCase{
 	{
 		name:     "tokens_to_text: ORDER BY inside OVER() does not trigger newline_before_order_by",
 		input:    `select id, row_number() over (order by x) as rn from t order by id`,
-		expected: "SELECT id, row_number() over (ORDER BY x) AS rn FROM t\nORDER BY id",
+		expected: "SELECT id, row_number() OVER (ORDER BY x) AS rn FROM t\nORDER BY id",
 		rules:    RulesConfig{UppercaseKeywords: true, NewlineBeforeOrderBy: true, OperatorSpacing: true},
 	},
 	{
 		name:     "nested scope: subquery's own WHERE still breaks while its window function's ORDER BY stays inline",
 		input:    `select id from (select id, row_number() over (order by x) as rn from t where coalesce(a,b) = 1) s where s.rn = 1`,
-		expected: "SELECT id\n  FROM (\nSELECT id, row_number() over (ORDER BY x) AS rn\n  FROM t\n WHERE coalesce(a, b) = 1) s\n WHERE s.rn = 1",
+		expected: "SELECT id\n  FROM (\nSELECT id, row_number() OVER (ORDER BY x) AS rn\n  FROM t\n WHERE coalesce(a, b) = 1) s\n WHERE s.rn = 1",
 		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, OperatorSpacing: true},
+	},
+	{
+		name:     "create_table_as: DDL keywords uppercased and body separated onto its own indented line",
+		input:    `create or replace temporary table foo as select id from t`,
+		expected: "CREATE OR REPLACE TEMPORARY TABLE foo AS\n  SELECT id\n    FROM t",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, OperatorSpacing: true},
+	},
+	{
+		name:     "create_table_as: WITH cte body separated and indented under the DDL header",
+		input:    `create table foo as with a as (select id from t) select * from a`,
+		expected: "CREATE TABLE foo AS\n  WITH a AS (\n    SELECT id\n      FROM t\n  )\n\n  SELECT *\n    FROM a",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, OperatorSpacing: true, CTEFormatting: true},
+	},
+	{
+		name:     "create_table_as: indentation stops at the trailing semicolon",
+		input:    `create table foo as select id from t`,
+		expected: "CREATE TABLE foo AS\n  SELECT id\n    FROM t\n;",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, OperatorSpacing: true, TrailingSemicolon: true},
+	},
+	{
+		name:     "create_table_as: other statements in the same script are untouched",
+		input:    `select id from other; create table foo as select id from t; select id from foo`,
+		expected: "SELECT id\n  FROM other\n;\n\nCREATE TABLE foo AS\n  SELECT id\n    FROM t\n;\n\nSELECT id\n  FROM foo",
+		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, OperatorSpacing: true, BlankLinesBetweenStatements: true},
 	},
 }
 

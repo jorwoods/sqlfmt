@@ -25,6 +25,57 @@ var operatorTokenTypes = map[int]bool{
 	parser.SnowflakeLexerDIVIDE: true,
 }
 
+// unarySignContextTypes are operator token types after which a following
+// '+' or '-' is a unary sign rather than binary addition/subtraction, e.g.
+// the "-1" in "x * -1" or "x % -1". Kept separate from operatorTokenTypes,
+// which omits STAR/MODULE so compact mode never strips the space out of
+// "SELECT *" -- those tokens still precede a value position for unary-sign
+// purposes.
+var unarySignContextTypes = map[int]bool{
+	parser.SnowflakeLexerEQ:     true,
+	parser.SnowflakeLexerGT:     true,
+	parser.SnowflakeLexerGE:     true,
+	parser.SnowflakeLexerLT:     true,
+	parser.SnowflakeLexerLE:     true,
+	parser.SnowflakeLexerNE:     true,
+	parser.SnowflakeLexerPLUS:   true,
+	parser.SnowflakeLexerMINUS:  true,
+	parser.SnowflakeLexerDIVIDE: true,
+	parser.SnowflakeLexerSTAR:   true,
+	parser.SnowflakeLexerMODULE: true,
+	parser.SnowflakeLexerSELECT: true,
+	parser.SnowflakeLexerWHERE:  true,
+	parser.SnowflakeLexerAND:    true,
+	parser.SnowflakeLexerOR:     true,
+	parser.SnowflakeLexerON:     true,
+	parser.SnowflakeLexerHAVING: true,
+	parser.SnowflakeLexerWHEN:   true,
+	parser.SnowflakeLexerTHEN:   true,
+	parser.SnowflakeLexerELSE:   true,
+	parser.SnowflakeLexerNOT:    true,
+	parser.SnowflakeLexerIN:       true,
+	parser.SnowflakeLexerLIKE:     true,
+	parser.SnowflakeLexerBETWEEN:  true,
+	parser.SnowflakeLexerCASE:     true,
+	parser.SnowflakeLexerQUALIFY:  true,
+	parser.SnowflakeLexerBY:       true,
+	parser.SnowflakeLexerDISTINCT: true,
+	parser.SnowflakeLexerIS:       true,
+}
+
+// isUnarySignPositionType reports whether ttype is a '+' or '-' token
+// appearing where a value is expected (start of an item, right after '('
+// or ',', right after another operator, or right after a keyword like
+// SELECT/WHERE/AND/WHEN/BY) rather than as binary addition/subtraction.
+// Mirrors isUnarySignPosition but works off token types, for the
+// token-type-based render path (tokensToText).
+func isUnarySignPositionType(ttype int, prevText string, prevTtype int) bool {
+	if ttype != parser.SnowflakeLexerPLUS && ttype != parser.SnowflakeLexerMINUS {
+		return false
+	}
+	return prevText == "" || prevText == "(" || prevText == "," || unarySignContextTypes[prevTtype]
+}
+
 var joinQualifierTypes = map[int]bool{
 	parser.SnowflakeLexerINNER:   true,
 	parser.SnowflakeLexerLEFT:    true,
@@ -116,7 +167,16 @@ func isKeyword(token antlr.Token) bool {
 		parser.SnowflakeLexerINTERSECT,
 		parser.SnowflakeLexerEXCEPT,
 		parser.SnowflakeLexerALL,
-		parser.SnowflakeLexerWITH:
+		parser.SnowflakeLexerWITH,
+		parser.SnowflakeLexerCREATE,
+		parser.SnowflakeLexerREPLACE,
+		parser.SnowflakeLexerTABLE,
+		parser.SnowflakeLexerTEMPORARY,
+		parser.SnowflakeLexerTEMP,
+		parser.SnowflakeLexerTRANSIENT,
+		parser.SnowflakeLexerIF,
+		parser.SnowflakeLexerEXISTS,
+		parser.SnowflakeLexerOVER:
 		return true
 	}
 	return false
@@ -162,6 +222,7 @@ func alignClausesOnly(tokens antlr.TokenStream, cfg *Config) string {
 		joinStarts = scanJoinStarts(tokens)
 	}
 	statementParens := scanStatementParens(tokens)
+	createTableBreaks := scanCreateTableAsBreaks(tokens)
 	var scopeStack []bool
 	clauseIndent := map[int]string{
 		parser.SnowflakeLexerSELECT:  "",
@@ -203,6 +264,13 @@ func alignClausesOnly(tokens antlr.TokenStream, cfg *Config) string {
 			}
 		}
 		atStatementLevel := len(scopeStack) == 0 || scopeStack[len(scopeStack)-1]
+		if createTableBreaks[i] {
+			// The query body of a CREATE ... TABLE ... AS starts on its own
+			// line. Doesn't `continue` -- the token itself (SELECT or WITH)
+			// still needs its normal handling below.
+			flushLine()
+			currentIndent = ""
+		}
 		if clauseTokenTypes[ttype] && atStatementLevel {
 			flushLine()
 			currentClause = ttype
@@ -409,6 +477,7 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 		joinStarts = scanJoinStarts(tokens)
 	}
 	statementParens := scanStatementParens(tokens)
+	createTableBreaks := scanCreateTableAsBreaks(tokens)
 	var scopeStack []bool
 	clauseIndent := map[int]string{
 		parser.SnowflakeLexerSELECT:  "",
@@ -453,6 +522,22 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 			}
 		}
 		atStatementLevel := len(scopeStack) == 0 || scopeStack[len(scopeStack)-1]
+		if createTableBreaks[i] {
+			// The query body of a CREATE ... TABLE ... AS starts on its own
+			// line. Doesn't `continue` -- the token itself (SELECT or WITH)
+			// still needs its normal handling below. At this point in the
+			// DDL header, selectIdents/inSelect are still at their zero
+			// value, so only the accumulated "line" needs flushing.
+			if len(line) > 0 {
+				joined := joinTokens(line, operatorSpacingEnabled(cfg))
+				if currentIndent != "" {
+					joined = currentIndent + joined
+				}
+				out = append(out, joined)
+				line = nil
+			}
+			currentIndent = ""
+		}
 		if ttype == parser.SnowflakeLexerSEMI {
 			flushItem()
 			if inSelect && len(selectIdents) > 0 {
@@ -659,6 +744,7 @@ func alignClausesAndSelectList(tokens antlr.TokenStream, cfg *Config) string {
 func joinTokens(tokens []string, operatorSpacing bool) string {
 	var out strings.Builder
 	prev := ""
+	prevIsUnarySign := false
 	for _, text := range tokens {
 		if prev != "" {
 			if text == "," || text == ";" || strings.HasPrefix(text, ")") {
@@ -667,6 +753,8 @@ func joinTokens(tokens []string, operatorSpacing bool) string {
 				// no space
 			} else if text == "." || prev == "." {
 				// no space around qualifier dot, e.g. a.id
+			} else if prevIsUnarySign {
+				// no space after a unary sign, e.g. -6
 			} else if text == "(" && isFunctionCallParen(prev) {
 				// no space before ( after function name
 			} else if !operatorSpacing && (operatorSymbols[text] || operatorSymbols[prev]) {
@@ -676,9 +764,49 @@ func joinTokens(tokens []string, operatorSpacing bool) string {
 			}
 		}
 		out.WriteString(text)
+		prevIsUnarySign = isUnarySignPosition(text, prev)
 		prev = text
 	}
 	return out.String()
+}
+
+// isUnarySignPosition reports whether text is a '+' or '-' token appearing
+// where a value is expected (start of an item, right after '(' or ',', or
+// right after another operator) rather than as binary addition/subtraction.
+// unarySignContextSymbols are operator token texts after which a following
+// '+' or '-' is a unary sign rather than binary addition/subtraction, e.g.
+// the "-1" in "x * -1" or "x % -1". This is deliberately its own set rather
+// than reusing operatorSymbols: operatorSymbols excludes "*" so that compact
+// mode never strips the space out of "SELECT *", but "*" still precedes a
+// value position for unary-sign purposes.
+var unarySignContextSymbols = map[string]bool{
+	"=": true, ">": true, ">=": true, "<": true, "<=": true,
+	"!=": true, "+": true, "-": true, "/": true, "*": true, "%": true,
+}
+
+// unarySignContextKeywords are keyword texts after which a following '+' or
+// '-' is a unary sign rather than binary addition/subtraction, e.g. the
+// "-amount" in "select -amount" or "order by -amount". Token-type
+// information isn't available in joinTokens (it works off plain token
+// text), so this is matched case-insensitively against the raw text.
+var unarySignContextKeywords = map[string]bool{
+	"select": true, "where": true, "and": true, "or": true, "on": true,
+	"having": true, "when": true, "then": true, "else": true, "not": true,
+	"in": true, "like": true, "between": true, "case": true, "qualify": true,
+	"by": true, "distinct": true, "is": true,
+}
+
+func isUnarySignPosition(text, prev string) bool {
+	if text != "+" && text != "-" {
+		return false
+	}
+	// A trailing comma may be glued onto the previous token's text (e.g.
+	// alignClausesOnly appends "," directly onto the prior line element
+	// instead of keeping it as its own array entry).
+	if prev == "" || prev == "(" || strings.HasSuffix(prev, ",") || unarySignContextSymbols[prev] {
+		return true
+	}
+	return unarySignContextKeywords[strings.ToLower(prev)]
 }
 // rightAlignClauses uses all rules enabled (for legacy calls)
 func rightAlignClauses(tokens antlr.TokenStream) string {
@@ -699,6 +827,7 @@ func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 		joinStarts = scanJoinStarts(tokens)
 	}
 	statementParens := scanStatementParens(tokens)
+	createTableBreaks := scanCreateTableAsBreaks(tokens)
 	var scopeStack []bool
 	currentClause := 0
 	inJoin := false
@@ -706,6 +835,7 @@ func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 	var out strings.Builder
 	prev := ""
 	prevTtype := -1
+	prevIsUnarySign := false
 	for i := 0; i < tokens.Size(); i++ {
 		tok := tokens.Get(i)
 		text := strings.TrimSpace(tok.GetText())
@@ -740,6 +870,14 @@ func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 			inJoin = false
 			afterSetOp = false
 			continue
+		}
+		// The query body of a CREATE ... TABLE ... AS starts on its own line,
+		// separate from the DDL header.
+		if createTableBreaks[i] {
+			if prev != "" && prev != "\n" {
+				out.WriteString("\n")
+			}
+			prev = "\n"
 		}
 		// Set operations (UNION / INTERSECT / EXCEPT) on their own line when enabled.
 		if newlineSetOp && setOperationTypes[ttype] && atStatementLevel {
@@ -812,12 +950,15 @@ func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 			continue
 		}
 		if prev != "" {
-			if text == "," || text == ")" {
-				// no space
+			if text == "," || strings.HasPrefix(text, ")") {
+				// no space (the ')' prefix check also covers a ')' token
+				// whose text got " AS" suffixed onto it by require_explicit_as)
 			} else if prev == "(" || prev == "\n" {
 				// no space
 			} else if text == "." || prev == "." {
 				// no space around qualifier dot, e.g. a.id
+			} else if prevIsUnarySign {
+				// no space after a unary sign, e.g. -6
 			} else if text == "(" && isFunctionCallParen(prev) {
 				// no space before ( after function name
 			} else if !operatorSpacing && (operatorTokenTypes[ttype] || operatorTokenTypes[prevTtype]) {
@@ -827,6 +968,7 @@ func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 			}
 		}
 		out.WriteString(text)
+		prevIsUnarySign = isUnarySignPositionType(ttype, prev, prevTtype)
 		prev = text
 		prevTtype = ttype
 	}
@@ -1082,6 +1224,57 @@ func scanStatementParens(tokens antlr.TokenStream) map[int]bool {
 	return isStatement
 }
 
+// scanCreateTableAsBreaks identifies, by token index, where a newline must
+// be forced to separate a CREATE [OR REPLACE] [TEMPORARY|TRANSIENT] TABLE
+// ... AS header from the SELECT/WITH query body that follows it. CREATE and
+// TABLE aren't clauseTokenTypes, so without this the DDL prefix and the
+// query merge onto one line -- and even where SELECT already gets its own
+// line via the normal clause machinery, a WITH-led CTE body doesn't (WITH
+// isn't a clauseTokenType either). Returns the index of the token
+// immediately after the DDL "AS", which is where the query body starts.
+func scanCreateTableAsBreaks(tokens antlr.TokenStream) map[int]bool {
+	breaks := map[int]bool{}
+	atStatementStart := true
+	inCreateTable := false
+	sawTable := false
+	for i := 0; i < tokens.Size(); i++ {
+		tok := tokens.Get(i)
+		if tok.GetChannel() != antlr.TokenDefaultChannel {
+			continue
+		}
+		text := tok.GetText()
+		ttype := tok.GetTokenType()
+		if strings.EqualFold(text, "<EOF>") {
+			break
+		}
+		if ttype == parser.SnowflakeLexerSEMI {
+			atStatementStart = true
+			inCreateTable = false
+			sawTable = false
+			continue
+		}
+		if atStatementStart {
+			inCreateTable = ttype == parser.SnowflakeLexerCREATE
+			atStatementStart = false
+		}
+		if !inCreateTable {
+			continue
+		}
+		if ttype == parser.SnowflakeLexerTABLE {
+			sawTable = true
+			continue
+		}
+		if sawTable && ttype == parser.SnowflakeLexerAS {
+			if nextIdx := nextDefaultTokenIndex(tokens, i); nextIdx != -1 {
+				breaks[nextIdx] = true
+			}
+			inCreateTable = false
+			sawTable = false
+		}
+	}
+	return breaks
+}
+
 func uppercaseFunctions(tokens antlr.TokenStream) {
 	for i := 0; i < tokens.Size()-1; i++ {
 		tok := tokens.Get(i)
@@ -1273,25 +1466,139 @@ func hasMoreNonEOFTokens(tokens antlr.TokenStream, from int) bool {
 // normalizeOrderDirectionExplicit adds explicit ASC to every ORDER BY item that has
 // no direction keyword. Works on both aligned (ORDER BY on its own line) and flat
 // (inline) output. Must run before formatCaseExpressions.
+// normalizeOrderDirectionExplicit finds real, top-level ORDER BY clauses and
+// appends explicit ASC to any item missing a direction. It must not touch an
+// "ORDER BY" that appears inside a window function's OVER(...) or any other
+// plain expression grouping -- only a nested SELECT statement (subquery or
+// CTE body) reopens a fresh scope in which a nested ORDER BY is itself real.
+// A '(' is classified as opening a statement scope using the same heuristic
+// as scanStatementParens/indentSubqueries: immediately followed by SELECT.
 func normalizeOrderDirectionExplicit(sql string) string {
-	lines := strings.Split(sql, "\n")
-	for i, line := range lines {
-		upper := strings.ToUpper(line)
-		obIdx := strings.Index(upper, "ORDER BY ")
-		if obIdx < 0 {
+	var out strings.Builder
+	var scopeStack []bool // true = statement-opening paren, false = expression grouping
+	i := 0
+	for i < len(sql) {
+		ch := sql[i]
+
+		if ch == '\'' {
+			j := skipStringLiteral(sql, i)
+			out.WriteString(sql[i:j])
+			i = j
 			continue
 		}
-		prefix := line[:obIdx+len("ORDER BY ")]
-		rest := line[obIdx+len("ORDER BY "):]
-		// Locate any inline terminator (LIMIT/OFFSET) so we don't consume it.
-		itemStr, suffix := splitOrderBySuffix(rest)
-		items := splitAtTopLevelCommas(itemStr)
-		for j, item := range items {
-			items[j] = ensureExplicitOrderDirection(item)
+
+		if ch == '(' {
+			scopeStack = append(scopeStack, isStatementOpenParen(sql, i))
+			out.WriteByte(ch)
+			i++
+			continue
 		}
-		lines[i] = prefix + strings.Join(items, ", ") + suffix
+		if ch == ')' {
+			if len(scopeStack) > 0 {
+				scopeStack = scopeStack[:len(scopeStack)-1]
+			}
+			out.WriteByte(ch)
+			i++
+			continue
+		}
+
+		atStatementLevel := len(scopeStack) == 0 || scopeStack[len(scopeStack)-1]
+		if atStatementLevel && matchesKeywordCI(sql, i, "ORDER BY ") {
+			out.WriteString(sql[i : i+len("ORDER BY ")])
+			i += len("ORDER BY ")
+
+			// Scan forward for the end of this ORDER BY's item list: end of
+			// line, or a ')' that isn't matched by a '(' opened within the
+			// item list itself (i.e. it closes the scope ORDER BY lives in).
+			localDepth := 0
+			end := i
+			for end < len(sql) {
+				c := sql[end]
+				if c == '\n' {
+					break
+				}
+				if c == '\'' {
+					end = skipStringLiteral(sql, end)
+					continue
+				}
+				if c == '(' {
+					localDepth++
+					end++
+					continue
+				}
+				if c == ')' {
+					if localDepth == 0 {
+						break
+					}
+					localDepth--
+					end++
+					continue
+				}
+				end++
+			}
+
+			// Locate any inline terminator (LIMIT/OFFSET) so we don't consume it.
+			itemStr, suffix := splitOrderBySuffix(sql[i:end])
+			items := splitAtTopLevelCommas(itemStr)
+			for j, item := range items {
+				items[j] = ensureExplicitOrderDirection(item)
+			}
+			out.WriteString(strings.Join(items, ", "))
+			out.WriteString(suffix)
+			i = end
+			continue
+		}
+
+		out.WriteByte(ch)
+		i++
 	}
-	return strings.Join(lines, "\n")
+	return out.String()
+}
+
+// skipStringLiteral returns the index just past the single-quoted string
+// literal starting at sql[i] (i must point at the opening quote), handling
+// '' as an escaped quote within the literal.
+func skipStringLiteral(sql string, i int) int {
+	j := i + 1
+	for j < len(sql) {
+		if sql[j] == '\'' {
+			j++
+			if j < len(sql) && sql[j] == '\'' {
+				j++
+				continue
+			}
+			break
+		}
+		j++
+	}
+	return j
+}
+
+// matchesKeywordCI reports whether sql[i:] starts with kw (case-insensitive)
+// at a word boundary, i.e. not preceded by an identifier character.
+func matchesKeywordCI(sql string, i int, kw string) bool {
+	if i+len(kw) > len(sql) {
+		return false
+	}
+	if !strings.EqualFold(sql[i:i+len(kw)], kw) {
+		return false
+	}
+	return i == 0 || !isWordChar(sql[i-1])
+}
+
+// isStatementOpenParen reports whether the '(' at index openIdx in sql opens
+// a nested SELECT statement (subquery or CTE body) as opposed to a plain
+// expression grouping (function call args, OVER(...), IN (...) value lists).
+// Mirrors scanStatementParens's token-based classification for use on
+// already-rendered text.
+func isStatementOpenParen(sql string, openIdx int) bool {
+	j := openIdx + 1
+	for j < len(sql) && (sql[j] == ' ' || sql[j] == '\t' || sql[j] == '\n' || sql[j] == '\r') {
+		j++
+	}
+	return j+6 <= len(sql) &&
+		strings.EqualFold(sql[j:j+6], "SELECT") &&
+		(j+6 >= len(sql) || !isWordChar(sql[j+6]))
 }
 
 // splitOrderBySuffix splits an ORDER BY remainder into the item list and any
@@ -1692,15 +1999,7 @@ func indentSubqueries(sql string) string {
 		}
 
 		if ch == '(' {
-			j := i + 1
-			for j < len(sql) && sql[j] == ' ' {
-				j++
-			}
-			isSubquery := j+6 <= len(sql) &&
-				strings.EqualFold(sql[j:j+6], "SELECT") &&
-				(j+6 >= len(sql) || !isWordChar(sql[j+6]))
-
-			if isSubquery {
+			if isStatementOpenParen(sql, i) {
 				content, endIdx, ok := extractBalancedContent(sql, i)
 				if ok && !strings.Contains(content, "\n") {
 					// Recursively apply to inner content so nested subqueries
@@ -1726,6 +2025,48 @@ func indentSubqueries(sql string) string {
 		i++
 	}
 	return out.String()
+}
+
+// isCreateTableAsHeaderLine reports whether line is a fully-rendered
+// "CREATE [OR REPLACE] [TEMPORARY|TRANSIENT] TABLE ... AS" DDL header line.
+// The render-level fix (scanCreateTableAsBreaks) guarantees this "AS" is the
+// last thing on its line, immediately before the query body begins on the
+// following line, so a simple prefix/suffix/contains check on the whole
+// line is reliable here.
+func isCreateTableAsHeaderLine(line string) bool {
+	upper := strings.ToUpper(strings.TrimSpace(line))
+	return strings.HasPrefix(upper, "CREATE ") &&
+		strings.Contains(upper, " TABLE ") &&
+		strings.HasSuffix(upper, " AS")
+}
+
+// indentCreateTableAsBody indents the query body of a CREATE ... TABLE ...
+// AS statement by 2 spaces, so it reads as nested under the DDL header
+// rather than sitting at the same column. Indentation stops at the
+// statement's closing ";" (left unindented, matching how a semicolon
+// already renders on its own line) or at end of string if there is no
+// trailing semicolon. A blank line within the body (e.g. the separator
+// CTEFormatting inserts after a CTE's closing paren) is left blank rather
+// than indented, but doesn't end the body -- it's a stylistic separator
+// within the statement, not a statement boundary.
+func indentCreateTableAsBody(sql string) string {
+	lines := strings.Split(sql, "\n")
+	for i := 0; i < len(lines); i++ {
+		if !isCreateTableAsHeaderLine(lines[i]) {
+			continue
+		}
+		for i++; i < len(lines); i++ {
+			trimmed := strings.TrimSpace(lines[i])
+			if trimmed == ";" {
+				break
+			}
+			if trimmed == "" {
+				continue
+			}
+			lines[i] = "  " + lines[i]
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 func ensureTrailingSemicolon(sql string) string {

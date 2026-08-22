@@ -14,6 +14,7 @@ func rulesAllDisabled(rules RulesConfig) bool {
 		!rules.TrailingSemicolon &&
 		!rules.StripTrailingWhitespace &&
 		!rules.NormalizeNotEqual &&
+		!rules.OperatorSpacing &&
 		!rules.BlankLinesBetweenStatements &&
 		!rules.NewlineBeforeAndOr &&
 		!rules.NormalizeBoolean &&
@@ -136,6 +137,7 @@ func FormatSQLWithConfig(input string, cfg *Config) string {
 	if rules.LeadingComma {
 		result = applyLeadingCommas(result)
 	}
+	result = indentCreateTableAsBody(result)
 	if rules.TrailingSemicolon {
 		result = ensureTrailingSemicolon(result)
 	}
