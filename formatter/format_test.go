@@ -786,6 +786,36 @@ var testCases = []formatTestCase{
 		expected: "SELECT id\n  FROM other\n;\n\nCREATE TABLE foo AS\n  SELECT id\n    FROM t\n;\n\nSELECT id\n  FROM foo",
 		rules:    RulesConfig{UppercaseKeywords: true, AlignClauses: true, OperatorSpacing: true, BlankLinesBetweenStatements: true},
 	},
+	{
+		name:     "require_explicit_as: :: cast is not an alias, trailing alias gets AS",
+		input:    `select x::int y from t`,
+		expected: "select x::int AS y from t",
+		rules:    RulesConfig{RequireExplicitAS: true, OperatorSpacing: true},
+	},
+	{
+		name:     "require_explicit_as: :: cast without alias untouched",
+		input:    `select x::int from t`,
+		expected: "select x::int from t",
+		rules:    RulesConfig{RequireExplicitAS: true, OperatorSpacing: true},
+	},
+	{
+		name:     "require_explicit_as: : semi-structured path is not an alias, trailing alias gets AS",
+		input:    `select x:foo y from t`,
+		expected: "select x:foo AS y from t",
+		rules:    RulesConfig{RequireExplicitAS: true, OperatorSpacing: true},
+	},
+	{
+		name:     "require_explicit_as: || concatenation is not an alias, trailing alias gets AS",
+		input:    `select a || b full_name from t`,
+		expected: "select a || b AS full_name from t",
+		rules:    RulesConfig{RequireExplicitAS: true, OperatorSpacing: true},
+	},
+	{
+		name:     "require_explicit_as: CTAS after another statement gets no AS between DDL keywords",
+		input:    `select 1; create or replace temporary table foo as select id from t`,
+		expected: "SELECT 1\n;\n\nCREATE OR REPLACE TEMPORARY TABLE foo AS\n  SELECT id\n    FROM t",
+		rules:    RulesConfig{RequireExplicitAS: true, UppercaseKeywords: true, AlignClauses: true, OperatorSpacing: true, BlankLinesBetweenStatements: true},
+	},
 }
 
 func TestStripTrailingWhitespace(t *testing.T) {
