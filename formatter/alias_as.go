@@ -68,22 +68,26 @@ var nonAliasKeywordTypes = map[int]bool{
 	parser.SnowflakeLexerBY:        true,
 }
 
-// nonAliasOperatorTypes are comparison/arithmetic operator token types.
+// nonAliasOperatorTypes are comparison/arithmetic/concatenation operator
+// token types, plus the ':' path and '::' cast operators.
 // These are never alias candidates, and a token immediately followed by one
 // is never an alias anchor either -- there's an operator in between.
 var nonAliasOperatorTypes = map[int]bool{
-	parser.SnowflakeLexerEQ:     true,
-	parser.SnowflakeLexerGT:     true,
-	parser.SnowflakeLexerGE:     true,
-	parser.SnowflakeLexerLT:     true,
-	parser.SnowflakeLexerLE:     true,
-	parser.SnowflakeLexerNE:     true,
-	parser.SnowflakeLexerLTGT:   true,
-	parser.SnowflakeLexerPLUS:   true,
-	parser.SnowflakeLexerMINUS:  true,
-	parser.SnowflakeLexerDIVIDE: true,
-	parser.SnowflakeLexerSTAR:   true,
-	parser.SnowflakeLexerMODULE: true,
+	parser.SnowflakeLexerEQ:          true,
+	parser.SnowflakeLexerGT:          true,
+	parser.SnowflakeLexerGE:          true,
+	parser.SnowflakeLexerLT:          true,
+	parser.SnowflakeLexerLE:          true,
+	parser.SnowflakeLexerNE:          true,
+	parser.SnowflakeLexerLTGT:        true,
+	parser.SnowflakeLexerPLUS:        true,
+	parser.SnowflakeLexerMINUS:       true,
+	parser.SnowflakeLexerDIVIDE:      true,
+	parser.SnowflakeLexerSTAR:        true,
+	parser.SnowflakeLexerMODULE:      true,
+	parser.SnowflakeLexerPIPE_PIPE:   true,
+	parser.SnowflakeLexerCOLON:       true,
+	parser.SnowflakeLexerCOLON_COLON: true,
 }
 
 func isWordLikeToken(tok antlr.Token) bool {
@@ -149,6 +153,13 @@ func requireExplicitAS(tokens antlr.TokenStream, cfg *Config) {
 			break
 		}
 
+		// A statement boundary ends all clause state; otherwise a preceding
+		// statement's SELECT would leak into e.g. a CREATE TABLE header.
+		if ttype == parser.SnowflakeLexerSEMI {
+			currentClause = 0
+			clauseStack = clauseStack[:0]
+			continue
+		}
 		if ttype == parser.SnowflakeLexerLR_BRACKET {
 			clauseStack = append(clauseStack, currentClause)
 			continue
@@ -208,33 +219,31 @@ func requireExplicitAS(tokens antlr.TokenStream, cfg *Config) {
 
 // needsSpace determines if a space is needed between prev and curr token types
 func needsSpace(prev, curr int) bool {
-	   // No space before comma, right paren, or after left paren
-	   if curr == parser.SnowflakeLexerCOMMA || curr == parser.SnowflakeLexerRR_BRACKET {
-			   return false
-	   }
-	   if prev == parser.SnowflakeLexerLR_BRACKET {
-			   return false
-	   }
-	   // Space after comma (before identifier/keyword/number)
-	   if prev == parser.SnowflakeLexerCOMMA && (curr == parser.SnowflakeLexerIDENTIFIER || curr == parser.SnowflakeLexerAS || curr == parser.SnowflakeLexerNUMBER) {
-			   return true
-	   }
-	   // Space between identifiers, AS, numbers
-	   if (prev == parser.SnowflakeLexerIDENTIFIER || prev == parser.SnowflakeLexerAS || prev == parser.SnowflakeLexerNUMBER) &&
-		  (curr == parser.SnowflakeLexerIDENTIFIER || curr == parser.SnowflakeLexerAS || curr == parser.SnowflakeLexerNUMBER) {
-			   return true
-	   }
-	   // Space between keywords and identifiers/AS
-	   if (prev == parser.SnowflakeLexerSELECT || prev == parser.SnowflakeLexerFROM || prev == parser.SnowflakeLexerWHERE) &&
-		  (curr == parser.SnowflakeLexerIDENTIFIER || curr == parser.SnowflakeLexerAS) {
-			   return true
-	   }
-	   // Space after right paren before identifier/keyword/number
-	   if prev == parser.SnowflakeLexerRR_BRACKET && (curr == parser.SnowflakeLexerIDENTIFIER || curr == parser.SnowflakeLexerAS || curr == parser.SnowflakeLexerNUMBER) {
-			   return true
-	   }
-	   // Default: no space
-	   return false
+	// No space before comma, right paren, or after left paren
+	if curr == parser.SnowflakeLexerCOMMA || curr == parser.SnowflakeLexerRR_BRACKET {
+		return false
+	}
+	if prev == parser.SnowflakeLexerLR_BRACKET {
+		return false
+	}
+	// Space after comma (before identifier/keyword/number)
+	if prev == parser.SnowflakeLexerCOMMA && (curr == parser.SnowflakeLexerIDENTIFIER || curr == parser.SnowflakeLexerAS || curr == parser.SnowflakeLexerNUMBER) {
+		return true
+	}
+	// Space between identifiers, AS, numbers
+	if (prev == parser.SnowflakeLexerIDENTIFIER || prev == parser.SnowflakeLexerAS || prev == parser.SnowflakeLexerNUMBER) &&
+		(curr == parser.SnowflakeLexerIDENTIFIER || curr == parser.SnowflakeLexerAS || curr == parser.SnowflakeLexerNUMBER) {
+		return true
+	}
+	// Space between keywords and identifiers/AS
+	if (prev == parser.SnowflakeLexerSELECT || prev == parser.SnowflakeLexerFROM || prev == parser.SnowflakeLexerWHERE) &&
+		(curr == parser.SnowflakeLexerIDENTIFIER || curr == parser.SnowflakeLexerAS) {
+		return true
+	}
+	// Space after right paren before identifier/keyword/number
+	if prev == parser.SnowflakeLexerRR_BRACKET && (curr == parser.SnowflakeLexerIDENTIFIER || curr == parser.SnowflakeLexerAS || curr == parser.SnowflakeLexerNUMBER) {
+		return true
+	}
+	// Default: no space
+	return false
 }
-
-

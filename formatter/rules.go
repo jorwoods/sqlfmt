@@ -753,6 +753,8 @@ func joinTokens(tokens []string, operatorSpacing bool) string {
 				// no space
 			} else if text == "." || prev == "." {
 				// no space around qualifier dot, e.g. a.id
+			} else if isPathOrCastOperator(text) || isPathOrCastOperator(prev) {
+				// no space around path/cast operators, e.g. v:foo, x::int
 			} else if prevIsUnarySign {
 				// no space after a unary sign, e.g. -6
 			} else if text == "(" && isFunctionCallParen(prev) {
@@ -768,6 +770,12 @@ func joinTokens(tokens []string, operatorSpacing bool) string {
 		prev = text
 	}
 	return out.String()
+}
+
+// isPathOrCastOperator reports whether text is Snowflake's ':' semi-structured
+// path operator or '::' cast operator, both written without surrounding spaces.
+func isPathOrCastOperator(text string) bool {
+	return text == ":" || text == "::"
 }
 
 // isUnarySignPosition reports whether text is a '+' or '-' token appearing
@@ -957,6 +965,8 @@ func tokensToText(tokens antlr.TokenStream, cfg *Config) string {
 				// no space
 			} else if text == "." || prev == "." {
 				// no space around qualifier dot, e.g. a.id
+			} else if isPathOrCastOperator(text) || isPathOrCastOperator(prev) {
+				// no space around path/cast operators, e.g. v:foo, x::int
 			} else if prevIsUnarySign {
 				// no space after a unary sign, e.g. -6
 			} else if text == "(" && isFunctionCallParen(prev) {
